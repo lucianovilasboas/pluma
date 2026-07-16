@@ -1855,10 +1855,10 @@ def agente_detalhe(request, agente_id):
         messages.warning(request, "Apenas administradores acessam esta área.")
         return redirect("home")
 
-    from apps.corretores.models import CorretorLLM, Ferramenta, PromptTemplate, ProvedorLLM, Skill
+    from apps.corretores.models import CorretorLLM, PromptTemplate, ProvedorLLM
 
     agente = CorretorLLM.objects.select_related("provedor").prefetch_related(
-        "skills", "ferramentas_ativas", "subagentes",
+        "subagentes",
     ).filter(id=agente_id).first()
 
     if agente is None:
@@ -1867,8 +1867,6 @@ def agente_detalhe(request, agente_id):
 
     provedores = ProvedorLLM.objects.filter(ativo=True).order_by("nome")
     templates = PromptTemplate.objects.order_by("-tipo", "nome")
-    todas_skills = Skill.objects.order_by("nome")
-    todas_ferramentas = Ferramenta.objects.order_by("nome")
 
     if request.method == "POST":
         if request.POST.get("acao") == "aplicar_sugestao":
@@ -1881,8 +1879,6 @@ def agente_detalhe(request, agente_id):
                     messages.success(request, f"Temperature alterada para {valor}.")
             elif tipo == "prompt":
                 messages.info(request, "Role até a seção 'Prompt de Avaliação' para editar.")
-            elif tipo == "skills":
-                messages.info(request, "Role até a seção 'Skills' para revisar.")
             return redirect("agente-detalhe", agente_id=agente_id)
 
         nome = request.POST.get("nome", "").strip()
@@ -1892,8 +1888,6 @@ def agente_detalhe(request, agente_id):
         prompt_template = request.POST.get("prompt_template", "").strip()
         prompt_personalizado = request.POST.get("prompt_personalizado", "").strip()
         prompt_ref_id = request.POST.get("prompt_template_ref", "").strip()
-        skills_ids = request.POST.getlist("skills")
-        ferramentas_ids = request.POST.getlist("ferramentas_ativas")
         subagentes_ids = request.POST.getlist("subagentes")
         temperature_str = request.POST.get("temperature", "").strip()
         seed_str = request.POST.get("seed", "").strip()
@@ -1912,8 +1906,6 @@ def agente_detalhe(request, agente_id):
             agente.prompt_personalizado = prompt_personalizado
             if prompt_ref_id:
                 agente.prompt_template_ref_id = prompt_ref_id
-            agente.skills.set(skills_ids)
-            agente.ferramentas_ativas.set(ferramentas_ids)
             agente.subagentes.set(subagentes_ids)
             if temperature_str:
                 try:
@@ -1941,8 +1933,6 @@ def agente_detalhe(request, agente_id):
             messages.success(request, "Agente atualizado com sucesso.")
         return redirect("agente-detalhe", agente_id=agente_id)
 
-    skills_vinculadas = set(agente.skills.values_list("id", flat=True))
-    ferramentas_vinculadas = set(agente.ferramentas_ativas.values_list("id", flat=True))
     subagentes_vinculados = set(agente.subagentes.values_list("id", flat=True))
 
     subagentes_disponiveis = CorretorLLM.objects.exclude(id=agente_id).order_by("nome")
@@ -1959,10 +1949,6 @@ def agente_detalhe(request, agente_id):
         "agente": agente,
         "provedores": provedores,
         "templates": templates,
-        "todas_skills": todas_skills,
-        "todas_ferramentas": todas_ferramentas,
-        "skills_vinculadas": skills_vinculadas,
-        "ferramentas_vinculadas": ferramentas_vinculadas,
         "subagentes_disponiveis": subagentes_disponiveis,
         "subagentes_vinculados": subagentes_vinculados,
         "sugestoes": sugestoes,
