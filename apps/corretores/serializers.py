@@ -162,6 +162,7 @@ class PoolCorrecaoSerializer(serializers.ModelSerializer):
             "id", "nome", "descricao", "metodo", "modo",
             "provedor", "provedor_nome", "modelo_llm",
             "limiar_desvio", "revisor_corretor", "revisor_corretor_nome",
+            "regra_revisor", "parametros_revisor",
             "ativo", "ordem", "limite_concorrencia",
             "criado_em", "corretores",
         )

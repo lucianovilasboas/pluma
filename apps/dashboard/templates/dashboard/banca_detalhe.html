@@ -59,22 +59,19 @@
       </div>
       <hr class="my-3">
       <div class="row g-2 small text-muted">
-        <div class="col-12 col-md-4">
+        <div class="col-12 col-md-3">
           <strong>Limiar de desvio:</strong> {{ banca.limiar_desvio }} pontos
         </div>
-        <div class="col-12 col-md-4">
+        <div class="col-12 col-md-3">
           <strong>Método da banca:</strong> {{ banca.get_metodo_display }}
         </div>
-        <div class="col-12 col-md-4">
-          <strong>Modo de atuação:</strong>
-          {% if banca.revisor_corretor %}
-            Acionado quando o desvio padrão entre corretores excede
-            {{ banca.limiar_desvio }} pontos em alguma competência
-          {% endif %}
+        <div class="col-12 col-md-3">
+          <strong>Regra do revisor:</strong>
+          {% for key, label in regras_revisor %}
+            {% if key == banca.regra_revisor %}{{ label }}{% endif %}
+          {% endfor %}
         </div>
-      </div>
-      <div class="row g-2 small text-muted mt-2">
-        <div class="col-12">
+        <div class="col-12 col-md-3">
           <strong>Revisões realizadas:</strong>
           <span class="fw-semibold {% if revisor_usos > 0 %}text-success{% else %}text-muted{% endif %}">
             {{ revisor_usos }} vez{{ revisor_usos|pluralize:"es" }}
@@ -362,11 +359,43 @@
           </select>
           <div class="form-text">Método usado para consolidar as notas dos corretores.</div>
         </div>
-        <hr>
-        <p class="small text-muted mb-0">
-          <strong>Modo de atuação:</strong> quando o desvio padrão entre corretores exceder o limiar
-          em alguma competência, o revisor é acionado para avaliar novamente e gerar o consenso final.
-        </p>
+        <div class="mb-3">
+          <label for="revisor-regra" class="form-label">Regra do revisor</label>
+          <select class="form-select" id="revisor-regra" onchange="atualizarCamposRegra()">
+            {% for key, label in regras_revisor %}
+              <option value="{{ key }}" {% if banca.regra_revisor == key %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          <div class="form-text">Define quando o revisor é acionado. Cada regra tem seus próprios parâmetros.</div>
+        </div>
+        <div id="revisor-params-desvio" class="mb-3">
+          <label for="revisor-limiar" class="form-label">Limiar de desvio</label>
+          <div class="input-group">
+            <input type="number" class="form-control" id="revisor-limiar" min="0" step="1"
+                   value="{{ banca.limiar_desvio|floatformat:'0' }}">
+            <span class="input-group-text">pontos</span>
+          </div>
+          <div class="form-text">Desvio padrão máximo por competência. Acima deste valor, o revisor é acionado.</div>
+        </div>
+        <div id="revisor-params-enem" class="mb-3 d-none">
+          <div class="mb-2">
+            <label for="revisor-limiar-total" class="form-label">Diferença máxima na nota total</label>
+            <div class="input-group">
+              <input type="number" class="form-control" id="revisor-limiar-total" min="0" step="1"
+                     value="{{ banca.parametros_revisor.limiar_total|default:100 }}">
+              <span class="input-group-text">pontos</span>
+            </div>
+          </div>
+          <div>
+            <label for="revisor-limiar-competencia" class="form-label">Diferença máxima por competência</label>
+            <div class="input-group">
+              <input type="number" class="form-control" id="revisor-limiar-competencia" min="0" step="1"
+                     value="{{ banca.parametros_revisor.limiar_competencia|default:80 }}">
+              <span class="input-group-text">pontos</span>
+            </div>
+          </div>
+          <div class="form-text">Se a diferença entre dois corretores exceder qualquer um destes valores, o revisor é acionado.</div>
+        </div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
@@ -452,6 +481,8 @@
       modo: modo,
       provedor: document.getElementById('banca-provedor').value || null,
       modelo_llm: document.getElementById('banca-modelo-llm').value || '',
+      regra_revisor: '{{ banca.regra_revisor|escapejs }}',
+      parametros_revisor: {{ banca.parametros_revisor|default:'{}'|safe }},
     };
 
     var confirmar = function() { return Promise.resolve(); };
@@ -528,8 +559,27 @@
     modal.show();
   };
 
+  window.atualizarCamposRegra = function() {
+    var regra = document.getElementById('revisor-regra').value;
+    document.getElementById('revisor-params-desvio').classList.toggle('d-none', regra !== 'desvio_padrao');
+    document.getElementById('revisor-params-enem').classList.toggle('d-none', regra !== 'diferenca_enem');
+  };
+
   window.salvarRevisor = function(e) {
     e.preventDefault();
+    var regra = document.getElementById('revisor-regra').value;
+    var params = {};
+    if (regra === 'desvio_padrao') {
+      var limiarVal = parseFloat(document.getElementById('revisor-limiar').value);
+      params = { limiar_desvio: isNaN(limiarVal) ? 20 : limiarVal };
+    } else if (regra === 'diferenca_enem') {
+      var totalVal = parseFloat(document.getElementById('revisor-limiar-total').value);
+      var compVal = parseFloat(document.getElementById('revisor-limiar-competencia').value);
+      params = {
+        limiar_total: isNaN(totalVal) ? 100 : totalVal,
+        limiar_competencia: isNaN(compVal) ? 80 : compVal,
+      };
+    }
     var limiarVal = parseFloat(document.getElementById('revisor-limiar').value);
     var data = {
       nome: '{{ banca.nome|escapejs }}',
@@ -540,6 +590,8 @@
       modo: '{{ banca.modo }}',
       provedor: '{{ banca.provedor_id|default:"" }}',
       modelo_llm: '{{ banca.modelo_llm|default:""|escapejs }}',
+      regra_revisor: regra,
+      parametros_revisor: params,
     };
 
     var btn = document.querySelector('#modal-revisor button[type="submit"]');

@@ -1663,7 +1663,7 @@ def banca_detalhe(request, banca_id):
         return redirect("bancas")
 
     from apps.avaliacoes.models import Consolidacao
-    from apps.corretores.models import CorretorLLM, ProvedorLLM
+    from apps.corretores.models import CorretorLLM, PoolCorrecao, ProvedorLLM
 
     corretores_llm = CorretorLLM.objects.select_related("provedor").order_by("nome")
     provedores = ProvedorLLM.objects.filter(ativo=True).order_by("nome")
@@ -1683,6 +1683,7 @@ def banca_detalhe(request, banca_id):
         "provedores": provedores,
         "usuarios": usuarios,
         "revisor_usos": revisor_usos,
+        "regras_revisor": PoolCorrecao.REGRA_REVISOR_CHOICES,
     })
 
 
