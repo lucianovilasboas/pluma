@@ -237,11 +237,14 @@ async def avaliar_com_um(
     provider: ProvedorPrompt | None = None,
     resultados_ferramentas: str | None = None,
     protocolo: str = "",
+    conhecimento: str | None = None,
+    output_json: bool = True,
 ) -> tuple[Avaliacao, list[dict[str, str]], str, str]:
     logger.info("avaliar_com_um — modelo=%s, provider=%s, ferramentas=%s",
                 modelo, provider.nome if provider else "AvaliadorDetalhado",
                 "sim" if resultados_ferramentas else "não")
-    conhecimento = _carregar_conhecimento(conhecimento_dir)
+    if conhecimento is None:
+        conhecimento = _carregar_conhecimento(conhecimento_dir)
     if not protocolo:
         protocolo = _carregar_protocolo(conhecimento_dir)
     if provider is None:
@@ -253,6 +256,7 @@ async def avaliar_com_um(
         llm, provider, conhecimento, redacao, modelo,
         resultados_ferramentas=resultados_ferramentas,
         protocolo=protocolo,
+        output_json=output_json,
     )
     logger.info("avaliar_com_um concluído — nota=%d/1000", av.nota_total)
     return av, anotacoes, sistema, usuario

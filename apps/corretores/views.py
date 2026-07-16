@@ -248,6 +248,7 @@ class CorretorLLMViewSet(viewsets.ModelViewSet):
         from essay_essay.evaluators.factory import criar_llm_client
         from essay_essay.evaluators.orchestrator import (
             PromptTemplateProvider,
+            _carregar_conhecimento,
             _carregar_protocolo,
             avaliar_com_um,
         )
@@ -279,6 +280,14 @@ class CorretorLLMViewSet(viewsets.ModelViewSet):
             provider = None
 
         try:
+            conhecimento = (
+                _carregar_conhecimento("base_de_conhecimento")
+                if corretor.incluir_base_conhecimento else ""
+            )
+            protocolo = (
+                _carregar_protocolo("base_de_conhecimento")
+                if corretor.incluir_protocolo_enem else ""
+            )
             av, anotacoes, sistema, usuario = asyncio.run(
                 avaliar_com_um(
                     cliente,
@@ -286,10 +295,9 @@ class CorretorLLMViewSet(viewsets.ModelViewSet):
                     modelo=corretor.modelo,
                     conhecimento_dir="base_de_conhecimento",
                     provider=provider,
-                    protocolo=(
-                        _carregar_protocolo("base_de_conhecimento")
-                        if corretor.incluir_protocolo_enem else ""
-                    ),
+                    protocolo=protocolo,
+                    conhecimento=conhecimento,
+                    output_json=bool(corretor.output_json),
                 )
             )
             notas = [
