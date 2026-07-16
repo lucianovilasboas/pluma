@@ -1,0 +1,66 @@
+{% extends "dashboard/base.html" %}
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Home</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'dashboard-configuracoes' %}">Configurações</a></li>
+    <li class="breadcrumb-item active">Corretores LLM</li>
+  </ol>
+</nav>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="h4 mb-0">Corretores LLM</h2>
+  <a href="/dashboard/configuracoes/corretores/adicionar" class="btn btn-primary btn-sm">+ Novo Corretor</a>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Nome</th>
+          <th>Provedor</th>
+          <th>Modelo</th>
+          <th>Descrição</th>
+          <th>Criado em</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in corretores %}
+        <tr>
+          <td class="fw-semibold">{{ c.nome }}</td>
+          <td>{{ c.provedor_nome|default:c.provedor_str|default:"—" }}</td>
+          <td><code>{{ c.modelo }}</code></td>
+          <td class="small text-muted" style="max-width:250px">
+            <span class="text-truncate d-inline-block" style="max-width:250px">
+              {{ c.descricao|default:"—" }}
+            </span>
+          </td>
+          <td class="small">{{ c.criado_em|date:"d/m/Y H:i" }}</td>
+          <td>
+            <div class="d-flex gap-2">
+              <a href="/dashboard/configuracoes/corretores/{{ c.id }}/editar" class="btn btn-outline-primary btn-sm">Editar</a>
+              <button class="btn btn-outline-danger btn-sm"
+                      onclick="excluirCorretor('{{ c.id }}', '{{ c.nome|escapejs }}', this)">Excluir</button>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-center py-4 text-muted">Nenhum corretor LLM cadastrado.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+window.excluirCorretor = async function(id, nome, btn) {
+  var ok = await excluirItem('/api/v1/admin/corretores-llm/' + id, nome, getCSRFToken());
+  if (ok) btn.closest('tr').remove();
+};
+</script>
+{% endblock %}

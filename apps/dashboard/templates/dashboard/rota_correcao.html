@@ -1,0 +1,286 @@
+{% extends "dashboard/base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="h4 mb-0">Rota de Correção</h2>
+  <span class="badge bg-light text-dark" id="status-badge">Carregando...</span>
+</div>
+<p class="text-muted small mb-4">
+  Defina para quem suas redações serão enviadas. Você pode escolher
+  uma banca completa (que reúne vários corretores) ou selecionar
+  corretores específicos de acordo com suas preferências.
+</p>
+
+<div class="row g-3">
+  <div class="col-12">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-4">
+        <div class="mb-3">
+          <label class="form-label fw-semibold small text-uppercase text-muted">Tipo de envio</label>
+          <div class="d-flex gap-3 flex-wrap">
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="tipo" id="tipo-padrao" value="padrao" onchange="mudarTipo()">
+              <label class="form-check-label" for="tipo-padrao">
+                Padrão do sistema
+              </label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="tipo" id="tipo-banca" value="banca" onchange="mudarTipo()">
+              <label class="form-check-label" for="tipo-banca">
+                Escolher banca específica
+              </label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="tipo" id="tipo-corretores" value="corretores" onchange="mudarTipo()">
+              <label class="form-check-label" for="tipo-corretores">
+                Selecionar corretores
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div id="secao-banca" class="d-none mt-3">
+          <label class="form-label fw-semibold small text-uppercase text-muted">Selecione a banca</label>
+          <div class="row g-3" id="lista-bancas"></div>
+        </div>
+
+        <div id="secao-corretores" class="d-none mt-3">
+          <label class="form-label fw-semibold small text-uppercase text-muted">
+            Selecione os corretores
+            <span class="text-muted fw-normal" id="contador-selecionados">(0 selecionados)</span>
+          </label>
+          <div class="row g-3" id="lista-corretores"></div>
+        </div>
+
+        <div class="d-flex gap-2 pt-3 border-top mt-4">
+          <button class="btn btn-primary px-4" id="btn-salvar" onclick="salvarRota()" disabled>
+            Salvar preferência
+          </button>
+          <span class="text-success align-self-center d-none small" id="msg-salvo">
+            Salvo com sucesso!
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+  var preferenciaAtual = {
+    tipo: "{{ preferencia_atual.tipo|default:'padrao' }}",
+    pool_id: "{{ preferencia_atual.pool_id|default:'' }}",
+    corretores_ids: "{{ preferencia_atual.corretores_ids|safe }}"
+  };
+
+  var bancasData = [];
+  var poolSelecionado = null;
+  var corretoresSelecionados = {};
+
+  function getCSRFToken() {
+    var cookies = document.cookie.split(';');
+    for (var i = 0; i < cookies.length; i++) {
+      var c = cookies[i].trim();
+      if (c.startsWith('csrftoken=')) return c.substring(10);
+    }
+    return '';
+  }
+
+  function api(method, url, body) {
+    var opts = {
+      method: method,
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
+      credentials: 'include',
+    };
+    if (body) opts.body = JSON.stringify(body);
+    return fetch(url, opts).then(function(r) {
+      if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
+      return r.json();
+    });
+  }
+
+  function carregarBancas() {
+    var statusEl = document.getElementById('status-badge');
+    return api('GET', '/api/v1/aluno/bancas-disponiveis').then(function(data) {
+      bancasData = data;
+      renderizarBancas(data);
+    }).catch(function(e) {
+      if (statusEl) {
+        statusEl.textContent = 'Erro ao carregar';
+        statusEl.className = 'badge bg-danger';
+      }
+      console.error('Erro ao carregar bancas:', e);
+    });
+  }
+
+  function renderizarBancas(bancas) {
+    var container = document.getElementById('lista-bancas');
+    var html = '';
+    bancas.forEach(function(b) {
+      var desc = b.descricao ? '<p class="card-text small text-muted mt-1">' + esc(b.descricao) + '</p>' : '';
+      var selecionado = preferenciaAtual.pool_id === b.id ? 'border-primary bg-primary-subtle' : '';
+      html += '<div class="col-12 col-md-6 col-lg-4">' +
+        '<div class="card banca-card ' + selecionado + '" style="cursor:pointer" onclick="selecionarBanca(\'' + b.id + '\')" data-banca-id="' + b.id + '">' +
+        '<div class="card-body py-3">' +
+        '<div class="d-flex justify-content-between align-items-start">' +
+        '<div>' +
+        '<h6 class="card-title mb-0">' + esc(b.nome) + '</h6>' +
+        '<div class="small text-muted mt-1">' +
+        esc(b.quantidade_corretores) + ' corretor' + (b.quantidade_corretores !== 1 ? 'es' : '') +
+        ' · Método: ' + esc(b.metodo === 'mediana' ? 'Mediana' : 'Média') +
+        (b.ativo ? ' · <span class="text-success fw-semibold">Ativa</span>' : '') +
+        '</div>' + desc +
+        '</div>' +
+        '<span class="badge bg-primary rounded-pill d-none check-banca">✓</span>' +
+        '</div>' +
+        '<div class="mt-2">' +
+        b.corretores.slice(0, 3).map(function(c) {
+          return '<span class="badge bg-secondary-subtle text-secondary-emphasis me-1 mb-1">' +
+            (c.tipo === 'llm' ? '🤖 ' : '🧑 ') + esc(c.nome) + '</span>';
+        }).join('') +
+        (b.corretores.length > 3 ? '<span class="badge bg-light text-muted">+ ' + (b.corretores.length - 3) + '</span>' : '') +
+        '</div></div></div></div>';
+    });
+    container.innerHTML = html || '<p class="text-muted small">Nenhuma banca disponível.</p>';
+    if (preferenciaAtual.pool_id) {
+      marcarBancaSelecionada(preferenciaAtual.pool_id);
+    }
+  }
+
+  function renderizarCorretores(bancas) {
+    var container = document.getElementById('lista-corretores');
+    var html = '';
+    bancas.forEach(function(b) {
+      b.corretores.forEach(function(c) {
+        var selectId = 'corr-' + c.id;
+        var checked = preferenciaAtual.corretores_ids.indexOf(c.id) !== -1 ? 'checked' : '';
+        if (checked) corretoresSelecionados[c.id] = c;
+        var desc = c.descricao ? '<div class="small text-muted mt-1">' + esc(c.descricao) + '</div>' : '';
+        var isAI = c.tipo === 'llm';
+        html += '<div class="col-12 col-md-6 col-lg-3">' +
+          '<div class="card border-0 shadow-sm h-100">' +
+          '<div class="card-body py-3">' +
+          '<div class="form-check mb-2">' +
+          '<input class="form-check-input" type="checkbox" id="' + selectId + '" value="' + c.id + '" ' + checked + ' onchange="toggleCorretor(\'' + c.id + '\', this.checked)">' +
+          '<label class="form-check-label fw-semibold small" for="' + selectId + '">' +
+          (isAI ? '🤖 ' : '🧑 ') + esc(c.nome) +
+          '</label>' +
+          '</div>' +
+          desc +
+          '</div></div></div>';
+      });
+    });
+    container.innerHTML = html || '<p class="text-muted small">Nenhum corretor disponível.</p>';
+  }
+
+  function esc(s) {
+    if (!s) return '';
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  window.mudarTipo = function() {
+    var checked = document.querySelector('input[name="tipo"]:checked');
+    if (!checked) return;
+    var tipo = checked.value;
+    document.getElementById('secao-banca').classList.toggle('d-none', tipo !== 'banca');
+    document.getElementById('secao-corretores').classList.toggle('d-none', tipo !== 'corretores');
+    document.getElementById('btn-salvar').disabled = false;
+    document.getElementById('msg-salvo').classList.add('d-none');
+  };
+
+  window.selecionarBanca = function(id) {
+    poolSelecionado = id;
+    window.marcarBancaSelecionada(id);
+    document.getElementById('btn-salvar').disabled = false;
+  };
+
+  window.marcarBancaSelecionada = function(id) {
+    document.querySelectorAll('.banca-card').forEach(function(c) {
+      c.classList.remove('border-primary', 'bg-primary-subtle');
+    });
+    document.querySelectorAll('.check-banca').forEach(function(b) {
+      b.classList.add('d-none');
+    });
+    var card = document.querySelector('[data-banca-id="' + id + '"]');
+    if (card) {
+      card.classList.add('border-primary', 'bg-primary-subtle');
+      var check = card.querySelector('.check-banca');
+      if (check) check.classList.remove('d-none');
+    }
+  }
+
+  window.toggleCorretor = function(id, checked) {
+    if (checked) {
+      corretoresSelecionados[id] = true;
+    } else {
+      delete corretoresSelecionados[id];
+    }
+    var total = Object.keys(corretoresSelecionados).length;
+    document.getElementById('contador-selecionados').textContent = '(' + total + ' selecionado' + (total !== 1 ? 's' : '') + ')';
+    document.getElementById('btn-salvar').disabled = total === 0;
+  }
+
+  window.salvarRota = function() {
+    var tipo = document.querySelector('input[name="tipo"]:checked').value;
+    var body = { tipo: tipo };
+
+    if (tipo === 'banca') {
+      body.pool_id = poolSelecionado;
+    } else if (tipo === 'corretores') {
+      body.corretores_ids = Object.keys(corretoresSelecionados);
+    }
+
+    var btn = document.getElementById('btn-salvar');
+    btn.disabled = true;
+    btn.textContent = 'Salvando...';
+
+    api('PUT', '/api/v1/aluno/minha-rota', body)
+      .then(function() {
+        document.getElementById('msg-salvo').classList.remove('d-none');
+        document.getElementById('status-badge').textContent = 'Configurado';
+        document.getElementById('status-badge').className = 'badge bg-success';
+        setTimeout(function() {
+          document.getElementById('msg-salvo').classList.add('d-none');
+        }, 3000);
+      })
+      .catch(function(e) {
+        alert('Erro ao salvar: ' + e.message);
+      })
+      .finally(function() {
+        btn.disabled = false;
+        btn.textContent = 'Salvar preferência';
+      });
+  }
+
+  function init() {
+    carregarBancas().then(function() {
+      renderizarCorretores(bancasData);
+
+      var tipoInit = preferenciaAtual.tipo;
+      var radio = document.querySelector('input[name="tipo"][value="' + tipoInit + '"]');
+      if (radio) radio.checked = true;
+      mudarTipo();
+
+      if (tipoInit === 'padrao') {
+        document.getElementById('status-badge').textContent = 'Padrão do sistema';
+        document.getElementById('status-badge').className = 'badge bg-secondary';
+      } else if (tipoInit === 'banca') {
+        document.getElementById('status-badge').textContent = 'Banca selecionada';
+        document.getElementById('status-badge').className = 'badge bg-primary';
+        poolSelecionado = preferenciaAtual.pool_id;
+      } else if (tipoInit === 'corretores') {
+        var ids = preferenciaAtual.corretores_ids;
+        document.getElementById('status-badge').textContent = ids.length + ' corretor' + (ids.length !== 1 ? 'es' : '');
+        document.getElementById('status-badge').className = 'badge bg-info text-dark';
+        ids.forEach(function(id) { corretoresSelecionados[id] = true; });
+      }
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+})();
+</script>
+{% endblock %}

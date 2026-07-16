@@ -1,0 +1,318 @@
+{% extends "dashboard/base.html" %}
+
+{% block banner_cta_aluno %}{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Home</a></li>
+    <li class="breadcrumb-item active">Redigir redação</li>
+  </ol>
+</nav>
+<h2 class="h4 mb-3">Redigir redação</h2>
+
+<div id="status-section" class="d-none"></div>
+
+<div id="form-section">
+  <div class="row g-4">
+
+    <!-- Painel Esquerdo: Seleção de Tema -->
+    <div class="col-12 col-lg-5">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body d-flex flex-column">
+            <label class="form-label fw-semibold" for="select-tema">Escolher tema</label>
+          <select class="form-select mb-3" id="select-tema">
+            <option value="">Nenhum tema específico</option>
+            {% for t in temas %}
+              <option value="{{ t.id }}" data-texto="{{ t.texto }}"
+                {% if t.imagem %}data-imagem="{{ t.imagem.url }}"{% endif %}
+                data-busca="{{ t.titulo|lower }} {{ t.texto|lower }}">{{ t.titulo }}</option>
+            {% endfor %}
+          </select>
+
+          <div id="tema-painel" class="d-none mt-3">
+            <div class="card border-0 bg-light overflow-hidden">
+              <img id="tema-imagem" class="card-img-top d-none"
+                   style="max-height:200px;object-fit:cover;width:100%;" alt="">
+              <div class="card-body">
+                <h6 class="card-title fw-semibold" id="tema-titulo"></h6>
+                <p class="card-text small" id="tema-descricao"
+                   style="white-space:pre-wrap;font-size:0.9rem;max-height:350px;overflow-y:auto;"></p>
+              </div>
+            </div>
+          </div>
+
+          <div id="pluma-placeholder" class="d-flex flex-column align-items-center justify-content-center flex-grow-1 text-center" style="min-height:180px;">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="80" height="80" style="opacity:0.12;">
+              <path d="M12 2 C18 2 22 6 22 12 C22 18 18 21 12 22 C6 21 2 18 2 12 C2 6 6 2 12 2Z" fill="#14b8a6" fill-opacity="0.08"/>
+              <path d="M12 2 L12 20" stroke="#14b8a6" stroke-width="1" stroke-linecap="round"/>
+              <path d="M12 5 L7 4.5 M12 8 L4 8 M12 11 L3 12 M12 14 L4 16 M12 17 L7 18.5" stroke="#14b8a6" stroke-width="0.5" opacity="0.35" stroke-linecap="round"/>
+              <path d="M12 5 L17 4.5 M12 8 L20 8 M12 11 L21 12 M12 14 L20 16 M12 17 L17 18.5" stroke="#14b8a6" stroke-width="0.5" opacity="0.35" stroke-linecap="round"/>
+              <path d="M12 20 L12 21" stroke="#14b8a6" stroke-width="0.7" opacity="0.4" stroke-linecap="round"/>
+              <path d="M11.2 21 L12 23 L12.8 21" stroke="#14b8a6" stroke-width="0.6" opacity="0.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            </svg>
+            <p class="text-muted small mt-2 mb-0" style="opacity:0.5;">Selecione um tema acima</p>
+          </div>
+
+          {% if not temas %}
+            <div class="text-muted small mt-2">
+              <em>Nenhum tema cadastrado no momento.</em>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Painel Direito: Formulário -->
+    <div class="col-12 col-lg-7">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <form id="form-redacao">
+            {% csrf_token %}
+            <input type="hidden" name="tema_ref_id" id="id_tema_ref">
+
+            <div class="mb-3">
+              <label class="form-label fw-semibold">{{ form.titulo.label }}</label>
+              {{ form.titulo }}
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-semibold">{{ form.texto.label }}</label>
+              <div class="paper-textarea-wrapper">
+                <div class="line-numbers" id="line-numbers">1</div>
+                {{ form.texto }}
+              </div>
+            </div>
+
+            <div class="d-flex align-items-center gap-2">
+              <button class="btn btn-primary" type="submit" id="btn-submeter">Enviar redação</button>
+              <div id="submit-spinner" class="spinner-border spinner-border-sm text-primary d-none" role="status">
+                <span class="visually-hidden">Enviando...</span>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+  function getCSRFToken() {
+    var cookies = document.cookie.split(';');
+    for (var i = 0; i < cookies.length; i++) {
+      var c = cookies[i].trim();
+      if (c.startsWith('csrftoken=')) return c.substring(10);
+    }
+    return '';
+  }
+
+  function onTemaChange(select) {
+    var painel = document.getElementById('tema-painel');
+    var placeholder = document.getElementById('pluma-placeholder');
+    var titulo = document.getElementById('tema-titulo');
+    var desc = document.getElementById('tema-descricao');
+    var img = document.getElementById('tema-imagem');
+    var temaRef = document.getElementById('id_tema_ref');
+    var option = select.options[select.selectedIndex];
+
+    if (option && option.value) {
+      temaRef.value = option.value;
+      titulo.textContent = option.textContent;
+      desc.textContent = option.getAttribute('data-texto') || '';
+      var imgUrl = option.getAttribute('data-imagem');
+      if (imgUrl) {
+        img.src = imgUrl;
+        img.classList.remove('d-none');
+      } else {
+        img.classList.add('d-none');
+      }
+      painel.classList.remove('d-none');
+      placeholder.style.display = 'none';
+    } else {
+      temaRef.value = '';
+      painel.classList.add('d-none');
+      placeholder.style.display = '';
+    }
+  }
+  window.onTemaChange = onTemaChange;
+
+  function syncLineNumbers() {
+    var textarea = document.getElementById('id_texto');
+    var numbers = document.getElementById('line-numbers');
+    if (!textarea || !numbers) return;
+    var lines = textarea.value.split('\n');
+    numbers.textContent = lines.map(function(_, i) { return i + 1; }).join('\n');
+  }
+
+  function renderizarStatus(status, redacaoId, redacaoTema, notaTotal) {
+    var section = document.getElementById('status-section');
+    var statusMap = {
+      'em_avaliacao': {
+        badge: 'badge bg-warning text-dark',
+        icone: '<div class="spinner-border spinner-border-sm me-2" role="status"></div>',
+        titulo: 'Avaliando sua redação',
+        mensagem: 'Aguarde enquanto os corretores analisam sua redação sobre "' + esc(redacaoTema) + '".',
+        acao: ''
+      },
+      'corrigida': {
+        badge: 'badge bg-success',
+        icone: '',
+        titulo: 'Redação corrigida!',
+        mensagem: 'Sua redação sobre "' + esc(redacaoTema) + '" foi avaliada. Nota final: <strong>' + (notaTotal || '—') + '</strong>.',
+        acao: '<a href="/dashboard/redacao/' + redacaoId + '" class="btn btn-success btn-sm mt-3">Ver resultado</a>'
+      },
+      'erro': {
+        badge: 'badge bg-danger',
+        icone: '',
+        titulo: 'Erro na correção',
+        mensagem: 'Ocorreu um erro ao corrigir sua redação sobre "' + esc(redacaoTema) + '". Tente reenviar.',
+        acao: '<button class="btn btn-outline-primary btn-sm mt-3" onclick="location.reload()">Nova redação</button>'
+      }
+    };
+
+    var s = statusMap[status] || statusMap['em_avaliacao'];
+
+    section.innerHTML =
+      '<div class="card border-0 shadow-sm">' +
+      '<div class="card-body p-4">' +
+      '<div class="d-flex align-items-center mb-2">' +
+      '<span class="' + s.badge + ' px-3 py-2">' + s.icone + s.titulo + '</span>' +
+      '</div>' +
+      '<p class="mb-0">' + s.mensagem + '</p>' +
+      s.acao +
+      '</div></div>';
+
+    if (status === 'corrigida' || status === 'erro') {
+      var btnNovo = section.querySelector('button');
+      if (!btnNovo) {
+        var div = section.querySelector('.card-body');
+        div.innerHTML += '<button class="btn btn-outline-secondary btn-sm mt-3" onclick="location.reload()">Nova redação</button>';
+      }
+    }
+
+    section.classList.remove('d-none');
+  }
+
+  function esc(s) {
+    if (!s) return '';
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  function iniciarPolling(redacaoId) {
+    var pollCount = 0;
+    var maxPolls = 120;
+    renderizarStatus('em_avaliacao', redacaoId, '', '');
+
+    var pollTimer = setInterval(function() {
+      pollCount++;
+      fetch('/api/v1/redacoes/' + redacaoId, {
+        headers: { 'X-CSRFToken': getCSRFToken(), 'Accept': 'application/json' },
+        credentials: 'include',
+      })
+        .then(function(r) {
+          if (!r.ok) throw new Error('erro');
+          return r.json();
+        })
+        .then(function(data) {
+          var status = data.status;
+          var nota = null;
+          if (data.consolidacao && data.consolidacao.nota_total !== undefined) {
+            nota = data.consolidacao.nota_total;
+          } else if (data.avaliacoes && data.avaliacoes.length > 0) {
+            nota = data.avaliacoes[0].nota_total;
+          }
+          renderizarStatus(status, redacaoId, data.tema, nota);
+
+          if (status !== 'em_avaliacao') {
+            clearInterval(pollTimer);
+          }
+        })
+        .catch(function() {});
+      if (pollCount >= maxPolls) {
+        clearInterval(pollTimer);
+        renderizarStatus('erro', redacaoId, '', '');
+      }
+    }, 3000);
+  }
+
+  document.getElementById('form-redacao').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    var texto = document.querySelector('[name="texto"]').value.trim();
+
+    if (!texto) {
+      alert('Preencha o texto da redação.');
+      return;
+    }
+
+    var btn = document.getElementById('btn-submeter');
+    var spinner = document.getElementById('submit-spinner');
+    btn.disabled = true;
+    spinner.classList.remove('d-none');
+
+    fetch('/api/v1/redacoes', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCSRFToken(),
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        tema: document.querySelector('[name="titulo"]').value.trim(),
+        texto: texto,
+        tema_ref_id: document.getElementById('id_tema_ref').value || null,
+      }),
+    })
+      .then(function(r) {
+        if (!r.ok) {
+          return r.json().then(function(err) {
+            throw new Error(err.mensagem || err.detail || 'Erro ao enviar');
+          });
+        }
+        return r.json();
+      })
+      .then(function(data) {
+        document.getElementById('form-section').classList.add('d-none');
+        document.querySelector('[name="titulo"]').value = '';
+        document.querySelector('[name="texto"]').value = '';
+        document.getElementById('id_tema_ref').value = '';
+        document.getElementById('select-tema').value = '';
+        document.getElementById('tema-painel').classList.add('d-none');
+        iniciarPolling(data.redacao_id);
+      })
+      .catch(function(e) {
+        alert('Erro: ' + e.message);
+      })
+      .finally(function() {
+        btn.disabled = false;
+        spinner.classList.add('d-none');
+      });
+  });
+
+  // Sync line numbers on load and input
+  document.addEventListener('DOMContentLoaded', function() {
+    var textarea = document.getElementById('id_texto');
+    if (textarea) {
+      textarea.addEventListener('input', syncLineNumbers);
+      textarea.addEventListener('scroll', function() {
+        var ln = document.getElementById('line-numbers');
+        if (ln) ln.scrollTop = this.scrollTop;
+      });
+      syncLineNumbers();
+    }
+  }  );
+})();
+</script>
+{% load static %}
+<script src="{% static 'dashboard/js/filtro-temas.js' %}"></script>
+<script>
+FiltroTemas.init('combobox', { onChange: onTemaChange });
+</script>
+{% endblock %}

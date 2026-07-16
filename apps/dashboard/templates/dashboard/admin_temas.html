@@ -1,0 +1,217 @@
+{% extends "dashboard/base.html" %}
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Home</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'dashboard-configuracoes' %}">Configurações</a></li>
+    <li class="breadcrumb-item active">Temas</li>
+  </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h2 class="h4 mb-1">Temas de Redação</h2>
+    <p class="text-muted small mb-0">Gerencie os temas disponíveis para os alunos</p>
+  </div>
+  <div class="d-flex gap-2 align-items-center">
+    <input type="text" class="form-control form-control-sm" id="busca-temas"
+           placeholder="&#x1F50D; Buscar por título ou texto..."
+           style="width:240px">
+    <a href="{% url 'admin-tema-novo' %}" class="btn btn-primary btn-sm">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-1" viewBox="0 0 16 16"><path d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2"/></svg>
+      Novo Tema
+    </a>
+  </div>
+</div>
+
+<div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+  {# --- INÍCIO: botão temas inconsistentes (feature removível) --- #}
+  <button type="button" class="btn btn-sm btn-outline-warning" id="btn-sel-inconsistentes"
+          onclick="selecionarInconsistentes()">
+    Selecionar inconsistentes
+  </button>
+  {# --- FIM: botão temas inconsistentes (feature removível) --- #}
+</div>
+
+<div class="card border-0 shadow-sm mb-3" id="bulk-bar" style="display:none">
+  <div class="card-body py-2 d-flex flex-wrap gap-2 align-items-center">
+    <span class="fw-semibold"><span id="bulk-count">0</span> selecionado(s)</span>
+    <div class="ms-auto d-flex gap-2">
+      <button type="button" class="btn btn-sm btn-outline-success" onclick="bulkStatus(true)">Ativar</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" onclick="bulkStatus(false)">Desativar</button>
+      <button type="button" class="btn btn-sm btn-outline-danger" onclick="bulkExcluir()">🗑 Excluir</button>
+    </div>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0 align-middle" id="tabela-temas">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-4" style="width:1%">
+              <input type="checkbox" class="form-check-input" id="select-all"
+                     onchange="toggleTodos(this)" title="Selecionar todos">
+            </th>
+            <th>Título</th>
+            <th>Texto</th>
+            <th>Imagem</th>
+            <th>Ativo</th>
+            <th>Criado por</th>
+            <th class="pe-4 text-end" style="width:120px">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in temas %}
+            <tr class="tema-row"
+                data-search="{{ item.obj.titulo|lower }} {{ item.obj.texto|lower }}"
+                data-inconsistente="{{ item.inconsistente|yesno:'true,false' }}">
+              <td class="ps-4">
+                <input type="checkbox" class="form-check-input tema-checkbox"
+                       value="{{ item.obj.id }}" onchange="atualizarBulkBar()">
+              </td>
+              <td>
+                <span class="fw-semibold">{{ item.obj.titulo }}</span>
+                {% if item.inconsistente %}
+                  <span class="badge bg-warning-subtle text-warning-emphasis rounded-pill ms-1"
+                        title="Texto vazio, igual ou muito próximo do título">inconsistente</span>
+                {% endif %}
+              </td>
+              <td class="small text-muted text-truncate" style="max-width:300px">
+                {{ item.obj.texto|truncatewords:20 }}
+              </td>
+              <td>
+                {% if item.obj.imagem %}
+                  <a href="{{ item.obj.imagem.url }}" target="_blank" class="small">
+                    <img src="{{ item.obj.imagem.url }}" alt="" style="width:40px;height:40px;object-fit:cover;border-radius:4px;">
+                  </a>
+                {% else %}
+                  <span class="text-muted small">—</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if item.obj.ativo %}
+                  <span class="badge bg-success-subtle text-success-emphasis rounded-pill">Ativo</span>
+                {% else %}
+                  <span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill">Inativo</span>
+                {% endif %}
+              </td>
+              <td class="small text-muted">{{ item.obj.criado_por.nome_exibicao|default:"—" }}</td>
+              <td class="pe-4 text-end text-nowrap">
+                <div class="d-flex gap-2 justify-content-end">
+                  <a href="{% url 'admin-tema-editar' item.obj.id %}"
+                     class="btn btn-sm btn-outline-secondary px-3">Editar</a>
+                  <button class="btn btn-sm btn-outline-danger px-3"
+                          onclick="excluirTema('{{ item.obj.id }}', '{{ item.obj.titulo|escapejs }}')">Excluir</button>
+                </div>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="7" class="text-center text-muted py-4">
+                Nenhum tema cadastrado.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+  var API = '/api/v1/admin/temas';
+
+  function idsSelecionados() {
+    return Array.from(document.querySelectorAll('.tema-checkbox:checked'))
+      .map(function(cb) { return cb.value; });
+  }
+
+  window.toggleTodos = function(master) {
+    document.querySelectorAll('.tema-row').forEach(function(row) {
+      if (row.style.display === 'none') return;
+      var cb = row.querySelector('.tema-checkbox');
+      if (cb) cb.checked = master.checked;
+    });
+    atualizarBulkBar();
+  };
+
+  window.atualizarBulkBar = function() {
+    var n = idsSelecionados().length;
+    document.getElementById('bulk-count').textContent = n;
+    document.getElementById('bulk-bar').style.display = n > 0 ? '' : 'none';
+  };
+
+  // --- INÍCIO: seleção de inconsistentes (feature removível) ---
+  window.selecionarInconsistentes = function() {
+    document.querySelectorAll('.tema-row').forEach(function(row) {
+      if (row.getAttribute('data-inconsistente') === 'true') {
+        var cb = row.querySelector('.tema-checkbox');
+        if (cb) cb.checked = true;
+      }
+    });
+    atualizarBulkBar();
+  };
+  // --- FIM: seleção de inconsistentes (feature removível) ---
+
+  window.excluirTema = function(id, titulo) {
+    if (!confirm('Excluir tema "' + titulo + '" permanentemente?')) return;
+    fetch(API + '/' + id, {
+      method: 'DELETE',
+      headers: { 'X-CSRFToken': getCSRFToken() },
+    })
+      .then(function(r) {
+        if (!r.ok) throw new Error('Erro ' + r.status);
+        mostrarToast('Tema excluído.');
+        location.reload();
+      })
+      .catch(function(e) { mostrarToast(e.message, 'erro'); });
+  };
+
+  window.bulkExcluir = function() {
+    var ids = idsSelecionados();
+    if (!ids.length) return;
+    if (!confirm('Excluir ' + ids.length + ' tema(s) permanentemente?')) return;
+    fetch(API + '/bulk-delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
+      body: JSON.stringify({ ids: ids }),
+    })
+      .then(function(r) {
+        if (!r.ok) return r.json().then(function(err) { throw new Error(err.detalhe || 'Erro ' + r.status); });
+        mostrarToast(ids.length + ' tema(s) excluído(s).');
+        location.reload();
+      })
+      .catch(function(e) { mostrarToast(e.message, 'erro'); });
+  };
+
+  window.bulkStatus = function(ativo) {
+    var ids = idsSelecionados();
+    if (!ids.length) return;
+    fetch(API + '/bulk-status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
+      body: JSON.stringify({ ids: ids, ativo: ativo }),
+    })
+      .then(function(r) {
+        if (!r.ok) return r.json().then(function(err) { throw new Error(err.detalhe || 'Erro ' + r.status); });
+        mostrarToast(ids.length + ' tema(s) ' + (ativo ? 'ativado(s).' : 'desativado(s).'));
+        location.reload();
+      })
+      .catch(function(e) { mostrarToast(e.message, 'erro'); });
+  };
+})();
+</script>
+{% load static %}
+<script src="{% static 'dashboard/js/filtro-temas.js' %}"></script>
+<script>
+FiltroTemas.init('table', {
+  inputId: 'busca-temas',
+  rowSelector: '.tema-row'
+});
+</script>
+{% endblock %}

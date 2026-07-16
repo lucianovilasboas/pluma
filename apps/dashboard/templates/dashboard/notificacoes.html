@@ -1,0 +1,92 @@
+{% extends "dashboard/base.html" %}
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Home</a></li>
+    <li class="breadcrumb-item active">Notificações</li>
+  </ol>
+</nav>
+<h2 class="h4 mb-3">Notificações</h2>
+
+{% if notificacoes %}
+<form method="post" action="{% url 'limpar-notificacoes' %}" class="mb-3">
+  {% csrf_token %}
+  <button type="submit" class="btn btn-outline-danger btn-sm">Limpar todas</button>
+</form>
+{% endif %}
+
+{% for n in notificacoes %}
+  <div class="card border-0 shadow-sm mb-2 {% if not n.lida %}border-start border-3 border-primary{% endif %}">
+    <div class="card-body py-3">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <span class="badge bg-{% if n.tipo == 'correcao_solicitada' %}warning text-dark{% elif n.tipo == 'correcao_aceita' %}success{% elif n.tipo == 'correcao_recusada' %}danger{% else %}info{% endif %} me-2 small">
+            {{ n.get_tipo_display }}
+          </span>
+          <span class="small text-muted">{{ n.criada_em|date:"d/m/Y H:i" }}</span>
+          {% if not n.lida %}
+            <span class="badge bg-primary ms-1">Nova</span>
+          {% endif %}
+        </div>
+      </div>
+      <p class="mb-1 mt-2">{{ n.mensagem }}</p>
+      {% if n.redacao %}
+        <small class="text-muted">
+          Redação: <strong>{{ n.redacao.tema }}</strong>
+        </small>
+        {% if n.redacao.id %}
+          <a href="{% url 'dashboard-detalhe-redacao' n.redacao.id %}" class="btn btn-sm btn-outline-primary ms-2">Ver redação</a>
+        {% endif %}
+      {% endif %}
+      {% if n.tipo == 'correcao_solicitada' and n.redacao %}
+        <div class="mt-2 d-flex gap-2">
+          <button class="btn btn-sm btn-success" onclick="responderNotificacao('{{ n.id }}', 'aceitar_agora')">Corrigir agora</button>
+          <button class="btn btn-sm btn-outline-success" onclick="responderNotificacao('{{ n.id }}', 'aceitar_depois')">Corrigir depois</button>
+          <button class="btn btn-sm btn-outline-danger" onclick="responderNotificacao('{{ n.id }}', 'recusar')">Recusar</button>
+        </div>
+      {% elif n.tipo == 'correcao_recusada' and n.redacao and n.redacao.usuario_id == request.user.id %}
+        <form method="post" action="{% url 'dashboard-resubmeter' n.redacao.id %}" class="mt-2" style="display:inline">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-sm btn-outline-primary">Reenviar para avaliação</button>
+        </form>
+      {% endif %}
+    </div>
+  </div>
+{% empty %}
+  <div class="card border-0 shadow-sm">
+    <div class="card-body text-center py-5 text-muted">
+      <p class="mb-0">Nenhuma notificação.</p>
+    </div>
+  </div>
+{% endfor %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function getCSRFToken() {
+  var cookies = document.cookie.split(';');
+  for (var i = 0; i < cookies.length; i++) {
+    var c = cookies[i].trim();
+    if (c.startsWith('csrftoken=')) return c.substring(10);
+  }
+  return '';
+}
+
+function responderNotificacao(id, acao) {
+  fetch('/api/v1/notificacoes/' + id + '/responder', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': getCSRFToken(),
+    },
+    body: JSON.stringify({ acao: acao }),
+  }).then(function(r) {
+    if (!r.ok) { alert('Erro ao responder notificação'); return; }
+    r.json().then(function(data) {
+      if (data.redirect) { window.location.href = data.redirect; }
+      else { location.reload(); }
+    });
+  });
+}
+</script>
+{% endblock %}

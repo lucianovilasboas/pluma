@@ -1,0 +1,78 @@
+{% extends "dashboard/base.html" %}
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Home</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'agentes' %}">Agentes de IA</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'agentes-prompts' %}">Templates de Prompt</a></li>
+    <li class="breadcrumb-item active">{% if editando %}Editar template{% else %}Novo template{% endif %}</li>
+  </ol>
+</nav>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-header bg-white py-3">
+    <h4 class="mb-0">{% if editando %}Editar template{% else %}Novo template{% endif %}</h4>
+  </div>
+  <div class="card-body">
+    <form method="post">
+      {% csrf_token %}
+
+      <div class="mb-3">
+        <label class="form-label small fw-semibold text-muted">Nome</label>
+        <input type="text" class="form-control" name="nome" value="{{ form.nome }}" required>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label small fw-semibold text-muted">Tipo</label>
+        <select class="form-select" name="tipo" {% if editando and form.tipo == 'base' %}disabled{% endif %}>
+          <option value="base" {% if form.tipo == 'base' %}selected{% endif %}>Base</option>
+          <option value="custom" {% if form.tipo == 'custom' %}selected{% endif %}>Customizado</option>
+        </select>
+        {% if editando and form.tipo == 'base' %}
+          <div class="form-text small text-muted">Templates base não podem ter o tipo alterado.</div>
+          <input type="hidden" name="tipo" value="base">
+        {% endif %}
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label small fw-semibold text-muted">Descrição</label>
+        <textarea name="descricao" class="form-control" rows="2">{{ form.descricao }}</textarea>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label small fw-semibold text-muted">
+          Prompt de sistema
+          {% if editando and form.tipo == 'base' %}
+            <span class="text-muted fw-normal">(bloqueado para templates base)</span>
+          {% endif %}
+        </label>
+        <textarea name="sistema_prompt" class="form-control font-monospace" rows="12"
+                  {% if editando and form.tipo == 'base' %}readonly{% endif %}>{{ form.sistema_prompt }}</textarea>
+        <div class="form-text small">
+          Instrução de sistema que define o comportamento do avaliador.
+          O formato de saída é inserido automaticamente ao final.
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label small fw-semibold text-muted">Formato de saída (JSON)</label>
+        <textarea name="formato_saida" class="form-control font-monospace" rows="8">{{ form.formato_saida }}</textarea>
+        <div class="form-text small">
+          Template do JSON que o LLM deve retornar. Incluído no final do prompt de sistema.
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label small fw-semibold text-muted">Competências padrão (JSON)</label>
+        <textarea name="competencias_padrao" class="form-control font-monospace" rows="3">{{ form.competencias_padrao }}</textarea>
+        <div class="form-text small">Array de competências cobertas por este template.</div>
+      </div>
+
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Salvar</button>
+        <a href="{% url 'agentes-prompts' %}" class="btn btn-outline-secondary">Cancelar</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

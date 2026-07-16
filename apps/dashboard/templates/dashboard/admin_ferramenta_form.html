@@ -1,0 +1,64 @@
+{% extends "dashboard/base.html" %}
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Home</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'agentes' %}">Agentes de IA</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'admin-ferramentas' %}">Ferramentas</a></li>
+    <li class="breadcrumb-item active">{{ titulo }}</li>
+  </ol>
+</nav>
+
+<h2 class="h4 mb-4">{{ titulo }}</h2>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-4">
+    <form method="POST" class="row g-4">
+      {% csrf_token %}
+
+      <div class="col-12 col-md-6">
+        <label class="form-label fw-semibold small text-uppercase text-muted">Nome</label>
+        <input type="text" name="nome" class="form-control form-control-lg"
+               value="{{ form.nome|default:'' }}" required
+               placeholder="Ex: Busca de Repertório">
+      </div>
+
+      <div class="col-12 col-md-6">
+        <label class="form-label fw-semibold small text-uppercase text-muted">Slug</label>
+        <input type="text" name="slug" class="form-control form-control-lg font-monospace"
+               value="{{ form.slug|default:'' }}"
+               placeholder="Ex: busca-repertorio">
+        <div class="form-text">Identificador único (apenas letras minúsculas, números e hífens).</div>
+      </div>
+
+      <div class="col-12">
+        <label class="form-label fw-semibold small text-uppercase text-muted">
+          Descrição
+          <span class="text-muted fw-normal text-lowercase">— o que esta ferramenta faz</span>
+        </label>
+        <textarea name="descricao" class="form-control" rows="4"
+                  placeholder="Ex: Habilita busca de repertórios socioculturais válidos (citações, autores, dados históricos) para enriquecer a argumentação...">{{ form.descricao|default:'' }}</textarea>
+      </div>
+
+      <div class="col-12">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="ativa_por_padrao" id="ativa_por_padrao"
+                 {% if form.ativa_por_padrao %}checked{% endif %}>
+          <label class="form-check-label small" for="ativa_por_padrao">
+            Ativa por padrão
+          </label>
+        </div>
+        <div class="form-text ms-4 small">Se marcada, novos agentes já virão com esta ferramenta habilitada.</div>
+      </div>
+
+      <div class="col-12">
+        <hr class="my-0">
+        <div class="d-flex gap-2 pt-3">
+          <button type="submit" class="btn btn-primary px-4">Salvar</button>
+          <a href="{% url 'admin-ferramentas' %}" class="btn btn-outline-secondary px-4">Cancelar</a>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

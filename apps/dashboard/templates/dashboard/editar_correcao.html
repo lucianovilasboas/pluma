@@ -1,0 +1,270 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Home</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'dashboard-minhas-correcoes' %}">Minhas Correções</a></li>
+    <li class="breadcrumb-item active">Editar Correção</li>
+  </ol>
+</nav>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="h4 mb-0">Editar Correção</h2>
+</div>
+
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body">
+    <strong>Tema:</strong> {{ redacao.tema }}
+    {% if redacao.tema_ref and redacao.tema_ref.texto %}
+      <button class="btn btn-sm btn-link text-decoration-none p-0 ms-1 align-baseline" data-acao="toggle-tema-conteudo">
+        📖 Ver tema completo
+      </button>
+      <div class="d-none mt-2 small text-muted p-2 bg-light rounded border">
+        <strong class="d-block mb-1">Texto do tema:</strong>
+        {{ redacao.tema_ref.texto|linebreaksbr }}
+      </div>
+    {% endif %}
+    <br>
+    <strong>Aluno:</strong> {{ redacao.usuario.nome_exibicao }}<br>
+    <strong>Corrigido em:</strong> {{ avaliacao.criada_em|date:"d/m/Y H:i" }}
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body">
+    <h5 class="mb-2">Texto da Redação</h5>
+    <div
+      id="redacao-texto"
+      class="border rounded p-3 bg-white"
+      style="min-height:150px;max-height:40vh;overflow-y:auto;white-space:pre-wrap;font-size:0.95rem;line-height:1.7;cursor:text;"
+    >{{ redacao_texto }}</div>
+  </div>
+</div>
+
+<div id="annotation-palette"></div>
+<div class="annotation-tooltip" id="annotation-tooltip"></div>
+
+<style>
+.competencia-item { border-left: 3px solid transparent !important; transition: border-color 0.2s ease; }
+.competencia-item:has(.accordion-collapse.show) { border-left-color: var(--bs-primary) !important; }
+</style>
+
+<div id="lista-anotacoes" class="card border-0 shadow-sm mb-3">
+  <div class="card-body py-2">
+    <div class="d-flex justify-content-between align-items-center mb-1">
+      <h6 class="mb-0">Anotações</h6>
+      <span id="anotacao-contagem" class="small text-muted"></span>
+    </div>
+    <div id="anotacoes-container" class="d-flex flex-column gap-1"></div>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body">
+    <h5 class="mb-3">Revisar notas e justificativas</h5>
+    <form method="post" id="formEdicao">
+      {% csrf_token %}
+      {{ form.redacao_id }}
+      {{ form.avaliacao_id }}
+
+      <div class="row mb-3">
+        <div class="col-12 col-md-6">
+          <label class="form-label small text-muted mb-1">Seu nome (avaliador)</label>
+          {{ form.nome_avaliador }}
+        </div>
+      </div>
+
+      <div class="accordion" id="accordionCompetencias">
+
+        <div class="accordion-item border-0 shadow-sm mb-2 competencia-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#comp-1" aria-expanded="true">
+              <strong>C1 — Domínio da Norma Escrita</strong>
+              <span class="ms-2 small text-muted">Domínio da modalidade escrita formal</span>
+            </button>
+          </h2>
+          <div id="comp-1" class="accordion-collapse collapse show" data-bs-parent="#accordionCompetencias">
+            <div class="accordion-body">
+              <div class="row g-3">
+                <div class="col-12 col-md-2">
+                  <label class="form-label small">Nota</label>
+                  <small class="text-muted d-block mb-1" style="font-size:0.75rem;">(0-200)</small>
+                  {{ form.c1_nota }}
+                </div>
+                <div class="col-12 col-md-5">
+                  <label class="form-label small">Justificativa</label>
+                  <small class="text-muted d-block mb-1" style="font-size:0.75rem;">Explique o motivo da nota</small>
+                  {{ form.c1_justificativa }}
+                </div>
+                <div class="col-12 col-md-5">
+                  <label class="form-label small">Sugestão de melhoria</label>
+                  <small class="text-muted d-block mb-1" style="font-size:0.75rem;">O que o aluno pode melhorar</small>
+                  {{ form.c1_sugestoes }}
+                </div>
+              </div>
+              <div class="d-flex justify-content-end mt-2">
+                <button type="button" class="btn btn-outline-primary btn-sm" data-competencia="1">Salvar competência</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="accordion-item border-0 shadow-sm mb-2 competencia-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#comp-2">
+              <strong>C2 — Compreensão do Tema</strong>
+              <span class="ms-2 small text-muted">Desenvolvimento do tema proposto</span>
+            </button>
+          </h2>
+          <div id="comp-2" class="accordion-collapse collapse" data-bs-parent="#accordionCompetencias">
+            <div class="accordion-body">
+              <div class="row g-3">
+                <div class="col-12 col-md-2">
+                  <label class="form-label small">Nota</label>
+                  <small class="text-muted d-block mb-1" style="font-size:0.75rem;">(0-200)</small>
+                  {{ form.c2_nota }}
+                </div>
+                <div class="col-12 col-md-5">
+                  <label class="form-label small">Justificativa</label>
+                  <small class="text-muted d-block mb-1" style="font-size:0.75rem;">Explique o motivo da nota</small>
+                  {{ form.c2_justificativa }}
+                </div>
+                <div class="col-12 col-md-5">
+                  <label class="form-label small">Sugestão de melhoria</label>
+                  <small class="text-muted d-block mb-1" style="font-size:0.75rem;">O que o aluno pode melhorar</small>
+                  {{ form.c2_sugestoes }}
+                </div>
+              </div>
+              <div class="d-flex justify-content-end mt-2">
+                <button type="button" class="btn btn-outline-primary btn-sm" data-competencia="2">Salvar competência</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="accordion-item border-0 shadow-sm mb-2 competencia-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#comp-3">
+              <strong>C3 — Argumentação</strong>
+              <span class="ms-2 small text-muted">Seleção e organização dos argumentos</span>
+            </button>
+          </h2>
+          <div id="comp-3" class="accordion-collapse collapse" data-bs-parent="#accordionCompetencias">
+            <div class="accordion-body">
+              <div class="row g-3">
+                <div class="col-12 col-md-2">
+                  <label class="form-label small">Nota</label>
+                  <small class="text-muted d-block mb-1" style="font-size:0.75rem;">(0-200)</small>
+                  {{ form.c3_nota }}
+                </div>
+                <div class="col-12 col-md-5">
+                  <label class="form-label small">Justificativa</label>
+                  <small class="text-muted d-block mb-1" style="font-size:0.75rem;">Explique o motivo da nota</small>
+                  {{ form.c3_justificativa }}
+                </div>
+                <div class="col-12 col-md-5">
+                  <label class="form-label small">Sugestão de melhoria</label>
+                  <small class="text-muted d-block mb-1" style="font-size:0.75rem;">O que o aluno pode melhorar</small>
+                  {{ form.c3_sugestoes }}
+                </div>
+              </div>
+              <div class="d-flex justify-content-end mt-2">
+                <button type="button" class="btn btn-outline-primary btn-sm" data-competencia="3">Salvar competência</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="accordion-item border-0 shadow-sm mb-2 competencia-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#comp-4">
+              <strong>C4 — Coesão</strong>
+              <span class="ms-2 small text-muted">Mecanismos linguísticos de coesão textual</span>
+            </button>
+          </h2>
+          <div id="comp-4" class="accordion-collapse collapse" data-bs-parent="#accordionCompetencias">
+            <div class="accordion-body">
+              <div class="row g-3">
+                <div class="col-12 col-md-2">
+                  <label class="form-label small">Nota</label>
+                  <small class="text-muted d-block mb-1" style="font-size:0.75rem;">(0-200)</small>
+                  {{ form.c4_nota }}
+                </div>
+                <div class="col-12 col-md-5">
+                  <label class="form-label small">Justificativa</label>
+                  <small class="text-muted d-block mb-1" style="font-size:0.75rem;">Explique o motivo da nota</small>
+                  {{ form.c4_justificativa }}
+                </div>
+                <div class="col-12 col-md-5">
+                  <label class="form-label small">Sugestão de melhoria</label>
+                  <small class="text-muted d-block mb-1" style="font-size:0.75rem;">O que o aluno pode melhorar</small>
+                  {{ form.c4_sugestoes }}
+                </div>
+              </div>
+              <div class="d-flex justify-content-end mt-2">
+                <button type="button" class="btn btn-outline-primary btn-sm" data-competencia="4">Salvar competência</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="accordion-item border-0 shadow-sm mb-2 competencia-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#comp-5">
+              <strong>C5 — Proposta de Intervenção</strong>
+              <span class="ms-2 small text-muted">Elaboração de proposta para o problema</span>
+            </button>
+          </h2>
+          <div id="comp-5" class="accordion-collapse collapse" data-bs-parent="#accordionCompetencias">
+            <div class="accordion-body">
+              <div class="row g-3">
+                <div class="col-12 col-md-2">
+                  <label class="form-label small">Nota</label>
+                  <small class="text-muted d-block mb-1" style="font-size:0.75rem;">(0-200)</small>
+                  {{ form.c5_nota }}
+                </div>
+                <div class="col-12 col-md-5">
+                  <label class="form-label small">Justificativa</label>
+                  <small class="text-muted d-block mb-1" style="font-size:0.75rem;">Explique o motivo da nota</small>
+                  {{ form.c5_justificativa }}
+                </div>
+                <div class="col-12 col-md-5">
+                  <label class="form-label small">Sugestão de melhoria</label>
+                  <small class="text-muted d-block mb-1" style="font-size:0.75rem;">O que o aluno pode melhorar</small>
+                  {{ form.c5_sugestoes }}
+                </div>
+              </div>
+              <div class="d-flex justify-content-end mt-2">
+                <button type="button" class="btn btn-outline-primary btn-sm" data-competencia="5">Salvar competência</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="d-flex align-items-center gap-3 mt-3">
+        <div class="d-flex align-items-baseline gap-2">
+          <span class="text-muted small">Nota total:</span>
+          <strong class="fs-3" id="nota-total-display">—</strong>
+          <span class="text-muted small">/ 1000</span>
+        </div>
+        <button class="btn btn-primary ms-auto" type="submit">
+          Salvar alterações
+        </button>
+        <span id="autoSaveStatus" class="small text-muted" style="opacity:0;transition:opacity 0.3s;"></span>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+window.__EDITAR_CONFIG__ = {
+  avaliacaoId: '{{ avaliacao.id }}',
+  anotacoes: {{ anotacoes_json|safe }},
+};
+</script>
+<script src="{% static 'dashboard/js/corrigir-core.js' %}"></script>
+<script src="{% static 'dashboard/js/editar-correcao.js' %}"></script>
+{% endblock %}

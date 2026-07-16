@@ -1,0 +1,366 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Home</a></li>
+    {% if request.user.user_type == 'aluno' %}
+      <li class="breadcrumb-item"><a href="{% url 'dashboard-minhas-redacoes' %}">Minhas Redações</a></li>
+    {% else %}
+      <li class="breadcrumb-item"><a href="{% url 'dashboard-minhas-correcoes' %}">Minhas Correções</a></li>
+    {% endif %}
+    <li class="breadcrumb-item active">Detalhes da Redação</li>
+  </ol>
+</nav>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="h4 mb-0">Detalhes da Redação</h2>
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-12 col-md-6">
+        <strong>Tema:</strong> {{ redacao.tema }}
+        {% if redacao.tema_ref and redacao.tema_ref.texto %}
+          <button class="btn btn-sm btn-link text-decoration-none p-0 ms-1 align-baseline"
+                  onclick="this.nextElementSibling.classList.toggle('d-none')">
+            📖 Ver tema completo
+          </button>
+          <div class="d-none mt-2 small text-muted p-2 bg-light rounded border">
+            <strong class="d-block mb-1">Texto do tema:</strong>
+            {{ redacao.tema_ref.texto|linebreaksbr }}
+          </div>
+        {% endif %}
+      </div>
+      <div class="col-12 col-md-3">
+        <strong>Data:</strong> {{ redacao.criada_em|date:"d/m/Y H:i" }}
+      </div>
+      <div class="col-12 col-md-3">
+        <strong>Status:</strong>
+        {% if redacao.status == "corrigida" %}
+          <span class="badge text-bg-success">Corrigida</span>
+        {% elif redacao.status == "em_avaliacao" %}
+          <span class="badge text-bg-warning">Em Avaliação</span>
+        {% elif redacao.status == "erro" %}
+          <span class="badge text-bg-danger">Erro</span>
+        {% else %}
+          <span class="badge text-bg-secondary">Pendente</span>
+        {% endif %}
+      </div>
+    </div>
+    {% if consolidacao %}
+    <div class="row g-3 mt-2">
+      <div class="col-12 col-md-3">
+        <strong>Nota{% if consolidacao.status == "parcial" %} parcial{% endif %}:</strong>
+        {% if consolidacao.status == "final" %}
+          <span class="badge text-bg-success fs-5">{{ consolidacao.nota_total }}</span>
+        {% else %}
+          <span class="badge text-bg-info fs-5">{{ consolidacao.nota_total }}</span>
+        {% endif %}
+      </div>
+      <div class="col-12 col-md-3">
+        <strong>Avaliadores:</strong> {{ avaliacoes_com_anotacoes|length }}
+      </div>
+      <div class="col-12 col-md-3">
+        <strong>Método:</strong> {{ consolidacao.metodo }}
+      </div>
+      <div class="col-12 col-md-3">
+        <strong>Correções:</strong> {{ consolidacao.quantidade_corretores }} de {{ consolidacao.quantidade_esperada }}
+      </div>
+    </div>
+    <div class="mt-2">
+      {% if consolidacao.status == "parcial" %}
+        <div class="alert alert-info py-2 mb-0 d-flex align-items-center gap-2 small">
+          <span>⏳</span>
+          <div>
+            <strong>Correção em andamento</strong>
+            — {{ consolidacao.quantidade_corretores }} de {{ consolidacao.quantidade_esperada }} correções recebidas.
+            A nota exibida é parcial e pode ser ajustada após novas avaliações.
+          </div>
+        </div>
+      {% elif consolidacao.usou_revisor_llm %}
+        <div class="alert alert-warning py-2 mb-0 d-flex align-items-center gap-2 small">
+          <span>🤖</span>
+          <div>
+            <strong>Revisor de consenso acionado</strong>
+            — as avaliações dos corretores apresentaram divergência significativa.
+            A nota final foi definida por um corretor revisor inteligente após análise crítica das avaliações.
+            {% if consolidacao.parecer_revisor %}
+              <br><span class="text-muted">{{ consolidacao.parecer_revisor }}</span>
+            {% endif %}
+          </div>
+        </div>
+      {% elif consolidacao.pool.revisor_corretor_id %}
+        <div class="d-flex align-items-center gap-1 small text-muted">
+          <span>✓</span> Consenso automático — as notas dos corretores convergiram.
+        </div>
+      {% else %}
+        <div class="d-flex align-items-center gap-1 small text-muted">
+          <span>✓</span> Nota consolidada por <strong>{{ consolidacao.metodo }}</strong>.
+        </div>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <h5 class="mb-0">Texto da Redação</h5>
+    <div class="btn-group btn-group-sm" role="group" id="filtro-anotacoes">
+      <input type="radio" class="btn-check" name="filtro" id="filtro-todos" value="todos" checked>
+      <label class="btn btn-outline-secondary btn-sm" for="filtro-todos">Todas</label>
+      <input type="radio" class="btn-check" name="filtro" id="filtro-humanos" value="humanos">
+      <label class="btn btn-outline-secondary btn-sm" for="filtro-humanos">Humanas</label>
+      <input type="radio" class="btn-check" name="filtro" id="filtro-ia" value="ia">
+      <label class="btn btn-outline-secondary btn-sm" for="filtro-ia">IA</label>
+    </div>
+  </div>
+  <div class="card-body">
+    <div style="white-space:pre-wrap;font-family:inherit;line-height:1.7;" id="redacao-texto">{{ texto_html }}</div>
+  </div>
+</div>
+
+{% if avaliacoes_com_anotacoes %}
+<div class="mb-4">
+  <h5 class="mb-3">Avaliações Individuais ({{ avaliacoes_com_anotacoes|length }})</h5>
+  {% for item in avaliacoes_com_anotacoes %}
+  {% with av=item.avaliacao anots=item.anotacoes tem=item.tem_anotacoes %}
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div class="d-flex align-items-center gap-2">
+        <strong>
+          {% if av.avaliador_usuario %}
+            {{ av.avaliador_usuario.nome_exibicao }}
+          {% elif av.avaliador %}
+            {{ av.avaliador }}
+          {% else %}
+            Desconhecido
+          {% endif %}
+        </strong>
+        {% if av.avaliador_usuario == request.user %}
+        <a href="{% url 'dashboard-editar-correcao' av.id %}" class="btn btn-sm btn-outline-primary">Editar</a>
+        {% endif %}
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        {% with modelo=av.modelo_llm %}
+        {% if modelo and modelo != 'humano' %}
+          <span class="badge bg-dark rounded-pill">IA</span>
+        {% else %}
+          <span class="badge text-bg-info rounded-pill">Humano</span>
+        {% endif %}
+        {% endwith %}
+        <small class="text-muted">{{ av.criada_em|date:"d/m/Y H:i" }}</small>
+      </div>
+    </div>
+    <div class="card-body pt-2">
+      <div class="table-responsive">
+        <table class="table table-sm mb-2" style="table-layout:fixed;">
+          <colgroup>
+            <col style="width:16%">
+            <col style="width:8%">
+            <col style="width:38%">
+            <col style="width:38%">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>Competência</th>
+              <th class="text-center">Nota</th>
+              <th>Justificativa</th>
+              <th>Sugestões</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="text-nowrap">C1 - Norma</td>
+              <td class="text-center align-middle">{{ av.c1_nota }}</td>
+              <td style="font-size:0.8rem;word-break:break-word;">{{ av.c1_justificativa }}</td>
+              <td style="font-size:0.8rem;word-break:break-word;">{{ av.c1_sugestoes }}</td>
+            </tr>
+            <tr>
+              <td class="text-nowrap">C2 - Tema</td>
+              <td class="text-center align-middle">{{ av.c2_nota }}</td>
+              <td style="font-size:0.8rem;word-break:break-word;">{{ av.c2_justificativa }}</td>
+              <td style="font-size:0.8rem;word-break:break-word;">{{ av.c2_sugestoes }}</td>
+            </tr>
+            <tr>
+              <td class="text-nowrap">C3 - Argumentação</td>
+              <td class="text-center align-middle">{{ av.c3_nota }}</td>
+              <td style="font-size:0.8rem;word-break:break-word;">{{ av.c3_justificativa }}</td>
+              <td style="font-size:0.8rem;word-break:break-word;">{{ av.c3_sugestoes }}</td>
+            </tr>
+            <tr>
+              <td class="text-nowrap">C4 - Coesão</td>
+              <td class="text-center align-middle">{{ av.c4_nota }}</td>
+              <td style="font-size:0.8rem;word-break:break-word;">{{ av.c4_justificativa }}</td>
+              <td style="font-size:0.8rem;word-break:break-word;">{{ av.c4_sugestoes }}</td>
+            </tr>
+            <tr>
+              <td class="text-nowrap">C5 - Intervenção</td>
+              <td class="text-center align-middle">{{ av.c5_nota }}</td>
+              <td style="font-size:0.8rem;word-break:break-word;">{{ av.c5_justificativa }}</td>
+              <td style="font-size:0.8rem;word-break:break-word;">{{ av.c5_sugestoes }}</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr class="table-active">
+              <th>Total</th>
+              <td class="text-center"><span class="badge text-bg-success">{{ av.nota_total }}</span></td>
+              <td colspan="2"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      {% if tem %}
+      <div class="mt-2">
+        <div class="small fw-semibold text-muted mb-1">Anotações no texto ({{ anots|length }}):</div>
+        <div class="d-flex flex-wrap gap-1">
+          {% for a in anots %}
+          <div class="d-flex align-items-center">
+            <span class="badge rounded-pill small
+              {% if a.tipo_erro == 'ortografia' %}bg-danger-subtle text-danger-emphasis
+              {% elif a.tipo_erro == 'concordancia' %}bg-warning-subtle text-warning-emphasis
+              {% elif a.tipo_erro == 'pontuacao' %}bg-warning-subtle text-warning-emphasis
+              {% elif a.tipo_erro == 'coesao' %}bg-primary-subtle text-primary-emphasis
+              {% elif a.tipo_erro == 'vocabulario' %}bg-info-subtle text-info-emphasis
+              {% elif a.tipo_erro == 'argumentacao' %}bg-danger-subtle text-danger-emphasis
+              {% elif a.tipo_erro == 'clareza' %}bg-success-subtle text-success-emphasis
+              {% else %}bg-secondary-subtle text-secondary-emphasis{% endif %}">
+              {{ a.get_tipo_erro_display }}
+            </span>
+            <small class="text-muted ms-1">"{{ a.trecho_texto|truncatechars:40 }}"</small>
+            {% if a.comentario %}
+            <small class="text-muted ms-1" title="{{ a.comentario }}">&#9432;</small>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% else %}
+      <div class="small text-muted fst-italic mt-2">
+        &#9888; Este avaliador não fez anotações no texto.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endwith %}
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if radar_json %}
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white">
+    <h5 class="mb-0">Radar por Competência</h5>
+  </div>
+  <div class="card-body">
+    <div id="radar-chart"></div>
+  </div>
+</div>
+{% endif %}
+
+{% if consolidacao %}
+<div class="card border-0 shadow-sm mb-4" style="border-top:3px solid #14b8a6 !important;">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <h5 class="mb-0">Nota Consolidada</h5>
+    <div class="text-end">
+      <span class="badge
+        {% if consolidacao.status == 'final' %}text-bg-success{% else %}text-bg-info{% endif %}
+        fs-4 px-3 py-2">
+        {{ consolidacao.nota_total }}/1000
+      </span>
+      {% if consolidacao.status == "parcial" %}
+        <div class="small text-muted mt-1">Nota parcial — aguardando mais corretores</div>
+      {% endif %}
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="row g-2 mb-2">
+      <div class="col-3"><small class="text-muted">Método:</small> <strong>{{ consolidacao.metodo }}</strong></div>
+      <div class="col-3"><small class="text-muted">Avaliadores:</small> <strong>{{ consolidacao.modo_display|default:avaliacoes_com_anotacoes|length }}</strong></div>
+      <div class="col-6"><small class="text-muted">Correções:</small> <strong>{{ consolidacao.quantidade_corretores }}/{{ consolidacao.quantidade_esperada }}</strong></div>
+    </div>
+    <div class="table-responsive">
+    <table class="table table-sm mb-0" style="table-layout:fixed;">
+      <colgroup>
+        <col style="width:20%">
+        <col style="width:10%">
+        <col style="width:70%">
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Competência</th>
+          <th class="text-center">Nota</th>
+          <th>Justificativa</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="text-nowrap">C1 - Norma</td>
+          <td class="text-center align-middle"><span class="badge text-bg-primary">{{ consolidacao.c1_nota }}</span></td>
+          <td style="font-size:0.8rem;word-break:break-word;">{{ consolidacao.c1_justificativa }}</td>
+        </tr>
+        <tr>
+          <td class="text-nowrap">C2 - Tema</td>
+          <td class="text-center align-middle"><span class="badge text-bg-primary">{{ consolidacao.c2_nota }}</span></td>
+          <td style="font-size:0.8rem;word-break:break-word;">{{ consolidacao.c2_justificativa }}</td>
+        </tr>
+        <tr>
+          <td class="text-nowrap">C3 - Argumentação</td>
+          <td class="text-center align-middle"><span class="badge text-bg-primary">{{ consolidacao.c3_nota }}</span></td>
+          <td style="font-size:0.8rem;word-break:break-word;">{{ consolidacao.c3_justificativa }}</td>
+        </tr>
+        <tr>
+          <td class="text-nowrap">C4 - Coesão</td>
+          <td class="text-center align-middle"><span class="badge text-bg-primary">{{ consolidacao.c4_nota }}</span></td>
+          <td style="font-size:0.8rem;word-break:break-word;">{{ consolidacao.c4_justificativa }}</td>
+        </tr>
+        <tr>
+          <td class="text-nowrap">C5 - Intervenção</td>
+          <td class="text-center align-middle"><span class="badge text-bg-primary">{{ consolidacao.c5_nota }}</span></td>
+          <td style="font-size:0.8rem;word-break:break-word;">{{ consolidacao.c5_justificativa }}</td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div class="annotation-tooltip" id="annotation-tooltip"></div>
+<script src="{% static 'dashboard/js/corrigir-core.js' %}"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    var container = document.getElementById("redacao-texto");
+    var filtros = document.querySelectorAll('[name="filtro"]');
+
+    function aplicarFiltro(val) {
+      if (!container) return;
+      var spans = container.querySelectorAll('span[data-anotacoes], span.ann-plain');
+      spans.forEach(function(el) {
+        el.classList.remove('ann-filtered-out');
+        var anns = [];
+        try { anns = JSON.parse(el.getAttribute('data-anotacoes') || '[]'); } catch(_) {}
+        var isIA = anns.some(function(a) { return a.is_ia; });
+        var isHuman = anns.some(function(a) { return !a.is_ia; });
+        if (val === "todos") return;
+        if (val === "ia" && !isIA) el.classList.add('ann-filtered-out');
+        if (val === "humanos" && !isHuman) el.classList.add('ann-filtered-out');
+      });
+    }
+
+    filtros.forEach(function(r) {
+      r.addEventListener("change", function() {
+        aplicarFiltro(this.value);
+      });
+    });
+
+    {% if radar_json %}
+    var radar = {{ radar_json|safe }};
+    Plotly.newPlot("radar-chart", radar.data, radar.layout, {responsive: true});
+    {% endif %}
+  });
+</script>
+{% endblock %}

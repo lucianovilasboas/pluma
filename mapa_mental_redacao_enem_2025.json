@@ -1,0 +1,64 @@
+{
+  "Redação do ENEM 2025": {
+    "Estrutura do Texto": [
+      "Tipo Dissertativo-Argumentativo",
+      "Ponto de Vista (Tese)",
+      "Argumentos Consistentes",
+      "Proposta de Intervenção"
+    ],
+    "Matriz de Referência": {
+      "Competência I": [
+        "Escrita Formal",
+        "Estrutura Sintática",
+        "Gramática e Convenções"
+      ],
+      "Competência II": [
+        "Compreensão do Tema",
+        "Repertório Sociocultural",
+        "Evitar Repertório de Bolso"
+      ],
+      "Competência III": [
+        "Projeto de Texto",
+        "Seleção de Informações",
+        "Desenvolvimento e Lógica"
+      ],
+      "Competência IV": [
+        "Coesão Textual",
+        "Operadores Argumentativos",
+        "Referenciação"
+      ],
+      "Competência V": [
+        "Ação Interventiva",
+        "Agente, Meio e Efeito",
+        "Respeito aos Direitos Humanos"
+      ]
+    },
+    "Processo de Avaliação": [
+      "Dois Avaliadores Independentes",
+      "Nota de 0 a 1000",
+      "Média Aritmética",
+      "Critérios de Discrepância",
+      "Terceiro Avaliador ou Banca"
+    ],
+    "Razões para Nota Zero": [
+      "Fuga ao Tema",
+      "Texto Insuficiente (7 linhas)",
+      "Folha em Branco",
+      "Identificação do Participante",
+      "Partes Desconectadas",
+      "Ilegibilidade",
+      "Impropérios ou Desenhos"
+    ],
+    "Atendimento Especializado": [
+      "Singularidades Linguísticas",
+      "Participantes Surdos e TEA",
+      "Critérios para Dislexia"
+    ],
+    "Orientações Gerais": [
+      "Uso dos Textos Motivadores",
+      "Título Opcional",
+      "Letra Legível",
+      "Caneta de Tinta Preta"
+    ]
+  }
+}

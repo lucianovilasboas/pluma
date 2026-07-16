@@ -1,0 +1,76 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}Debug — Redações — Pluma{% endblock %}
+{% block content %}
+
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Home</a></li>
+    <li class="breadcrumb-item active">Debug — Redações</li>
+  </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h5 class="mb-0">Redações ({{ total }})</h5>
+  <span class="text-muted small">últimas 100 · ordem decrescente</span>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0 align-middle small">
+        <thead class="table-light">
+          <tr>
+            <th>Data</th>
+            <th>Tema</th>
+            <th>Aluno</th>
+            <th>Banca</th>
+            <th>Status</th>
+            <th>Avaliações</th>
+            <th>Consolidação</th>
+            <th style="width:1%"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in items %}
+          <tr>
+            <td class="text-nowrap text-muted">{{ item.criada_em|date:"d/m H:i" }}</td>
+            <td class="text-truncate" style="max-width:250px">{{ item.tema }}</td>
+            <td>{{ item.aluno }}</td>
+            <td>{{ item.pool_nome }}</td>
+            <td>
+              {% if item.status == 'corrigida' %}
+                <span class="badge bg-success">Corrigida</span>
+              {% elif item.status == 'em_avaliacao' %}
+                <span class="badge bg-info text-dark">Em avaliação</span>
+              {% elif item.status == 'erro' %}
+                <span class="badge bg-danger">Erro</span>
+              {% else %}
+                <span class="badge bg-secondary">{{ item.status }}</span>
+              {% endif %}
+            </td>
+            <td class="text-center">{{ item.qtd_avaliacoes }}</td>
+            <td>
+              {% if item.consolidacao_status %}
+                <span class="badge {% if item.consolidacao_status == 'final' %}bg-success{% else %}bg-warning text-dark{% endif %}">
+                  {{ item.consolidacao_status }} {{ item.consolidacao_nota|default:'' }}
+                </span>
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            <td>
+              <a href="{% url 'debug-detalhe' item.id %}" class="btn btn-sm btn-outline-secondary py-0">🔍</a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="8" class="text-center text-muted py-4">Nenhuma redação encontrada.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

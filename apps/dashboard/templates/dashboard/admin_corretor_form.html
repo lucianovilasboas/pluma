@@ -1,0 +1,224 @@
+{% extends "dashboard/base.html" %}
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Home</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'agentes' %}">Agentes de IA</a></li>
+    <li class="breadcrumb-item active">{{ titulo }}</li>
+  </ol>
+</nav>
+<div class="mb-4">
+  <h2 class="h4 mb-1">{{ titulo }}</h2>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-4">
+    <form method="POST" class="row g-4">
+      {% csrf_token %}
+
+      <div class="col-12 col-md-6">
+        <label class="form-label fw-semibold small text-uppercase text-muted">Nome do corretor</label>
+        <input type="text" name="nome" class="form-control form-control-lg"
+               value="{{ form.nome|default:'' }}" required
+               placeholder="Ex: Corretor DeepSeek">
+        <div class="form-text">Um nome amigável para identificar este corretor.</div>
+      </div>
+
+      <div class="col-12 col-md-6">
+        <label class="form-label fw-semibold small text-uppercase text-muted" for="select-provedor">Provedor</label>
+        <select name="provedor" class="form-select form-select-lg" id="select-provedor" required>
+          <option value="">— Selecione um provedor —</option>
+          {% for p in provedores %}
+          <option value="{{ p.id }}"
+                  data-baseurl="{{ p.base_url|default:'api.openai.com' }}"
+                  data-ativo="{{ p.ativo|yesno:'Ativo,Inativo' }}"
+                  {% if form.provedor_id == p.id|stringformat:'s' %}selected{% endif %}>
+            {{ p.nome }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div id="provedor-info" class="col-12" style="display:none;">
+        <div class="bg-light rounded-3 p-3 small">
+          <div class="row g-2">
+            <div class="col-auto">
+              <span class="badge bg-info-subtle text-info-emphasis rounded-pill" id="provedor-status"></span>
+            </div>
+            <div class="col-auto">
+              <span class="text-muted">Base:</span> <code id="provedor-baseurl"></code>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-md-6">
+        <label class="form-label fw-semibold small text-uppercase text-muted" for="select-modelo">Modelo</label>
+        <div class="d-flex align-items-center gap-2">
+          <select name="modelo" class="form-select form-select-lg flex-fill" id="select-modelo" required>
+            {% if form.modelo %}
+            <option value="{{ form.modelo }}" selected>{{ form.modelo }}</option>
+            {% else %}
+            <option value="">— Selecione um provedor primeiro —</option>
+            {% endif %}
+          </select>
+          <div id="modelos-spinner" class="spinner-border text-primary" role="status" style="width:1.25rem;height:1.25rem;display:none;">
+            <span class="visually-hidden">Carregando...</span>
+          </div>
+        </div>
+        <div id="modelos-status" class="form-text"></div>
+      </div>
+
+      <div class="col-12 col-md-6 d-flex align-items-end">
+        {% if form.provedor_str %}
+        <div class="small text-muted">
+          <span class="fw-semibold">Provedor legado:</span> {{ form.provedor_str }}
+          <span class="d-block">Este corretor usava um provedor definido como texto. Vincule a um provedor acima para usar suas configurações.</span>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="col-12">
+        <label class="form-label fw-semibold small text-uppercase text-muted">
+          Descrição
+          <span class="text-muted fw-normal text-lowercase">— habilidades e foco do corretor</span>
+        </label>
+        <textarea name="descricao" class="form-control" rows="4"
+                  placeholder="Ex: Corretor especializado em coesão textual e argumentação, com foco em identificar problemas de concordância e propor intervenções criativas...">{{ form.descricao|default:'' }}</textarea>
+        <div class="d-flex align-items-center gap-2 mt-2">
+          <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-gerar-descricao"
+                  {% if not form.provedor_id %}disabled{% endif %}>
+            Gerar descrição com IA
+          </button>
+          <div id="descricao-spinner" class="spinner-border spinner-border-sm text-primary" role="status" style="display:none">
+            <span class="visually-hidden">Gerando...</span>
+          </div>
+          <span id="descricao-status" class="small text-success d-none">Descrição gerada!</span>
+        </div>
+      </div>
+
+      <div class="col-12">
+        <hr class="my-0">
+        <div class="d-flex gap-2 pt-3">
+          <button type="submit" class="btn btn-primary px-4">Salvar</button>
+          <a href="{% url 'agentes' %}" class="btn btn-outline-secondary px-4">Cancelar</a>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function getCSRFToken() {
+  const cookies = document.cookie.split(';');
+  for (let c of cookies) {
+    c = c.trim();
+    if (c.startsWith('csrftoken=')) return c.substring(10);
+  }
+  return '';
+}
+
+const provedorSelect = document.getElementById('select-provedor');
+const modeloSelect = document.getElementById('select-modelo');
+const statusDiv = document.getElementById('modelos-status');
+const spinner = document.getElementById('modelos-spinner');
+const provedorInfo = document.getElementById('provedor-info');
+const provedorStatus = document.getElementById('provedor-status');
+const provedorBaseUrl = document.getElementById('provedor-baseurl');
+
+function updateProvedorInfo() {
+  const opt = provedorSelect.options[provedorSelect.selectedIndex];
+  if (opt && opt.value) {
+    provedorInfo.style.display = 'block';
+    provedorStatus.textContent = opt.dataset.ativo;
+    provedorStatus.className = 'badge ' + (opt.dataset.ativo === 'Ativo' ? 'bg-success-subtle text-success-emphasis' : 'bg-secondary-subtle text-secondary-emphasis') + ' rounded-pill';
+    provedorBaseUrl.textContent = opt.dataset.baseurl;
+  } else {
+    provedorInfo.style.display = 'none';
+  }
+}
+
+provedorSelect.addEventListener('change', async function() {
+  const provedorId = this.value;
+  updateProvedorInfo();
+
+  modeloSelect.innerHTML = '<option value="">Carregando...</option>';
+  modeloSelect.disabled = true;
+  statusDiv.textContent = '';
+  spinner.style.display = 'inline-block';
+
+  if (!provedorId) {
+    modeloSelect.innerHTML = '<option value="">— Selecione um provedor primeiro —</option>';
+    modeloSelect.disabled = false;
+    spinner.style.display = 'none';
+    return;
+  }
+
+  try {
+    const resp = await fetch('/api/v1/admin/provedores/' + provedorId + '/testar', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': getCSRFToken() },
+    });
+    const data = await resp.json();
+    if (data.status === 'ok') {
+      const models = data.modelos;
+      if (models.length === 0) {
+        modeloSelect.innerHTML = '<option value="">Nenhum modelo disponível</option>';
+        statusDiv.textContent = 'Nenhum modelo retornado pelo provedor.';
+      } else {
+        modeloSelect.innerHTML = models.map(m =>
+          '<option value="' + m.replace(/&/g,'&amp;').replace(/</g,'&lt;') + '">' + m.replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</option>'
+        ).join('');
+        statusDiv.innerHTML = '<span class="badge bg-primary-subtle text-primary-emphasis rounded-pill">' + models.length + ' modelo' + (models.length > 1 ? 's' : '') + ' disponível' + (models.length > 1 ? 'is' : '') + '</span>';
+      }
+    } else {
+      modeloSelect.innerHTML = '<option value="">Erro ao listar modelos</option>';
+      statusDiv.innerHTML = '<span class="text-danger small">Erro: ' + data.detalhe + '</span>';
+    }
+  } catch (e) {
+    modeloSelect.innerHTML = '<option value="">Erro de conexão</option>';
+    statusDiv.innerHTML = '<span class="text-danger small">Erro: ' + e.message + '</span>';
+  } finally {
+    modeloSelect.disabled = false;
+    spinner.style.display = 'none';
+  }
+});
+
+updateProvedorInfo();
+
+{% if form.provedor_id %}
+document.getElementById('btn-gerar-descricao').addEventListener('click', async function() {
+  var corretorId = '{{ form.corretor_id|default:"" }}';
+  var btn = this;
+  var spinner = document.getElementById('descricao-spinner');
+  var status = document.getElementById('descricao-status');
+  var textarea = document.querySelector('textarea[name="descricao"]');
+
+  btn.disabled = true;
+  spinner.style.display = 'inline-block';
+  status.classList.add('d-none');
+
+  try {
+    var resp = await fetch('/api/v1/admin/corretores-llm/' + corretorId + '/gerar-descricao', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': getCSRFToken() },
+    });
+    var data = await resp.json();
+    if (data.descricao) {
+      textarea.value = data.descricao;
+      status.classList.remove('d-none');
+    } else if (data.erro) {
+      alert('Erro: ' + data.erro);
+    }
+  } catch (e) {
+    alert('Erro ao gerar descrição: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    spinner.style.display = 'none';
+  }
+});
+{% endif %}
+</script>
+{% endblock %}

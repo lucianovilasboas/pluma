@@ -1,0 +1,82 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: essay_essay
+      POSTGRES_USER: essay_essay
+      POSTGRES_PASSWORD: essay_essay
+    ports:
+      - "5437:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U essay_essay"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  web:
+    build: .
+    ports:
+      - "1000:8000"
+    env_file:
+      - .env
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      DJANGO_ALLOWED_HOSTS: "*"
+      AVALIACAO_USE_Q2: "true"
+      DJANGO_SETTINGS_MODULE: "config.settings.production"
+      # Acesso local é via HTTP puro (http://host:1000), sem TLS na frente.
+      # Cookies Secure não trafegam por HTTP; mantenha "false" aqui.
+      # Em produção atrás de Traefik/HTTPS, sobrescreva com "true".
+      SESSION_COOKIE_SECURE: "${SESSION_COOKIE_SECURE:-false}"
+      CSRF_COOKIE_SECURE: "${CSRF_COOKIE_SECURE:-false}"
+    volumes:
+      - media_data:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    command: >
+      gunicorn config.wsgi:application
+        --bind 0.0.0.0:8000
+        --workers 3
+        --timeout 120
+        --graceful-timeout 30
+        --keep-alive 5
+        --max-requests 300
+        --max-requests-jitter 50
+        --access-logfile -
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}.rule=Host(`${HOST_NAME}`)
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}.entrypoints=websecure
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}.tls.certresolver=letsencrypt
+      - traefik.http.services.${COMPOSE_PROJECT_NAME}.loadbalancer.server.port=${PORT-8000}
+
+  worker:
+    build: .
+    env_file:
+      - .env
+    environment:
+      SKIP_MIGRATE: "true"
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      AVALIACAO_USE_Q2: "true"
+      DJANGO_SETTINGS_MODULE: "config.settings.production"
+    volumes:
+      - media_data:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    command: >
+      sh -c "python manage.py migrate django_q --noinput &&
+             python manage.py qcluster"
+
+
+volumes:
+  postgres_data:
+  media_data:

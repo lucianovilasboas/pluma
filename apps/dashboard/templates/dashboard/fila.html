@@ -1,0 +1,306 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}Fila de tarefas — Pluma{% endblock %}
+{% block content %}
+
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Home</a></li>
+    <li class="breadcrumb-item active">Fila de tarefas</li>
+  </ol>
+</nav>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center h-100">
+      <div class="card-body py-3">
+        <div class="text-muted small text-uppercase fw-semibold">Na fila</div>
+        <div class="fs-3 fw-bold text-primary">{{ fila_count }}</div>
+        <div class="text-muted small">aguardando processamento</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center h-100">
+      <div class="card-body py-3">
+        <div class="text-muted small text-uppercase fw-semibold">Executando</div>
+        <div class="fs-3 fw-bold text-info">{{ em_execucao }}</div>
+        <div class="text-muted small">tarefas em andamento</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center h-100">
+      <div class="card-body py-3">
+        <div class="text-muted small text-uppercase fw-semibold">Falhas (hoje)</div>
+        <div class="fs-3 fw-bold text-danger">{{ falhas_hoje }}</div>
+        <div class="text-muted small">tarefas com erro</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center h-100">
+      <div class="card-body py-3">
+        <div class="text-muted small text-uppercase fw-semibold">Sucesso (hoje)</div>
+        <div class="fs-3 fw-bold text-success">{{ sucesso_hoje }}</div>
+        <div class="text-muted small">tarefas concluídas</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body py-3">
+    <div class="d-flex align-items-center gap-2">
+      <span class="fw-semibold small text-muted text-uppercase">Worker</span>
+      {% if worker_ativo %}
+        <span class="badge bg-success">Ativo</span>
+        <span class="text-muted small">processou tarefas nos últimos 5 minutos</span>
+      {% else %}
+        <span class="badge bg-warning text-dark">⚠ Sem atividade</span>
+        <span class="text-muted small">nenhuma tarefa concluída nos últimos 5 minutos</span>
+      {% endif %}
+      <span class="ms-auto text-muted small">{{ agora|date:"d/m/Y H:i:s" }}</span>
+    </div>
+  </div>
+</div>
+
+{% if erro_items %}
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
+    <span class="fw-semibold small text-muted text-uppercase">
+      Redações com erro ({{ erro_items|length }})
+    </span>
+  </div>
+  <div class="card-body p-0">
+    {% for item in erro_items %}
+    <div class="border-bottom p-3">
+      <div class="d-flex align-items-start justify-content-between gap-2">
+        <div class="min-w-0">
+          <a href="{% url 'dashboard-detalhe-redacao' item.id %}" class="fw-semibold text-decoration-none text-break">
+            {{ item.tema|truncatechars:60 }}
+          </a>
+          <span class="text-muted small ms-2">{{ item.pool_nome }}</span>
+        </div>
+        <div class="text-nowrap">
+          {% if item.corretores %}
+            <span class="text-muted small me-2">{{ item.com_avaliacao }}/{{ item.total }} corretores</span>
+            {% if item.pode_forcar %}
+              <form method="post" action="{% url 'fila-forcar-consolidacao' item.id %}" style="display:inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-success py-0"
+                        onclick="return confirm('Forçar consolidação com as avaliações existentes?')">
+                  ✅ Consolidar
+                </button>
+              </form>
+            {% endif %}
+            <form method="post" action="{% url 'fila-redisparar' item.id %}" style="display:inline">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-outline-warning py-0"
+                      onclick="return confirm('Re-disparar avaliações pendentes?')">
+                🔄 Redisparar
+              </button>
+            </form>
+          {% else %}
+            <form method="post" action="{% url 'fila-redisparar' item.id %}" style="display:inline">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-outline-warning py-0"
+                      onclick="return confirm('Re-disparar avaliação?')">
+                🔄 Redisparar
+              </button>
+            </form>
+          {% endif %}
+        </div>
+      </div>
+      {% if item.corretores %}
+      <div class="mt-2 d-flex align-items-center gap-1 flex-wrap">
+        {% for c in item.corretores %}
+          {% if c.tem_avaliacao %}
+            <span class="badge bg-success-subtle text-success border border-success-subtle">
+              ✅ {{ c.nome }}
+            </span>
+          {% else %}
+            <span class="badge bg-danger-subtle text-danger border border-danger-subtle me-1">
+              ❌ {{ c.nome }}
+            </span>
+            <form method="post" action="{% url 'fila-retentar-corretor' item.id c.id %}" style="display:inline" class="me-1">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-outline-secondary py-0"
+                      onclick="return confirm('Re-tentar apenas este corretor?')">
+                Re-tentar
+              </button>
+            </form>
+          {% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if queue_items %}
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white py-2">
+    <span class="fw-semibold small text-muted text-uppercase">Próximas da fila ({{ fila_count }})</span>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0 align-middle small">
+        <thead class="table-light">
+          <tr>
+            <th>Cluster</th>
+            <th>Tipo</th>
+            <th>Função</th>
+            <th>Redação</th>
+            <th>Banca</th>
+            <th style="width:1%">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in queue_items %}
+          <tr>
+            <td><code>{{ item.key }}</code></td>
+            <td>{% include "dashboard/fila_badge_tipo.html" with tipo=item.tipo %}</td>
+            <td class="text-truncate" style="max-width:250px"><code>{{ item.func }}</code></td>
+            <td>
+              {% if item.tipo == "email" %}
+                <span title="Assunto: {{ item.email_assunto|default:'—' }}">
+                  📧 {{ item.email_assunto|default:"—"|truncatechars:40 }}
+                </span>
+                {% if item.email_destino %}
+                  <br><small class="text-muted">→ {{ item.email_destino }}</small>
+                {% endif %}
+              {% elif item.redacao_id %}
+                <a href="{% url 'dashboard-detalhe-redacao' item.redacao_id %}" class="text-decoration-none">
+                  {{ item.redacao_nome|truncatechars:50 }}
+                </a>
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if item.pool_id %}
+                <a href="{% url 'banca-detalhe' item.pool_id %}" class="text-decoration-none">
+                  {{ item.pool_nome|truncatechars:30 }}
+                </a>
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            <td class="text-nowrap">
+              <form method="post" action="{% url 'fila-remover-queue' item.id %}" style="display:inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-danger py-0"
+                        onclick="return confirm('Remover esta tarefa da fila?')">🗑</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div class="card border-0 shadow-sm">
+  <div class="card-header bg-white py-2">
+    <span class="fw-semibold small text-muted text-uppercase">Histórico de tarefas</span>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0 align-middle small">
+        <thead class="table-light">
+          <tr>
+            <th>Início</th>
+            <th>Duração</th>
+            <th>Tipo</th>
+            <th>Função</th>
+            <th>Redação / Detalhe</th>
+            <th>Banca</th>
+            <th>Status</th>
+            <th style="width:1%">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for t in tasks_recentes %}
+          <tr>
+            <td class="text-nowrap">{{ t.started|date:"d/m H:i"|default:"—" }}</td>
+            <td class="text-nowrap">
+              {% if t.stopped %}
+                {{ t.time_taken|floatformat:0 }}s
+              {% else %}
+                <span class="badge bg-info text-dark">Em execução</span>
+              {% endif %}
+            </td>
+            <td>{% include "dashboard/fila_badge_tipo.html" with tipo=t.tipo %}</td>
+            <td class="text-truncate" style="max-width:200px"><code>{{ t.func }}</code></td>
+            <td>
+              {% if t.tipo == "email" %}
+                <span title="Assunto: {{ t.email_assunto|default:'—' }}">
+                  📧 {{ t.email_assunto|default:"—"|truncatechars:40 }}
+                </span>
+                {% if t.email_destino %}
+                  <br><small class="text-muted">→ {{ t.email_destino }}</small>
+                {% endif %}
+              {% elif t.redacao_id %}
+                <a href="{% url 'dashboard-detalhe-redacao' t.redacao_id %}" class="text-decoration-none">
+                  {{ t.redacao_nome|truncatechars:50 }}
+                </a>
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if t.pool_id %}
+                <a href="{% url 'banca-detalhe' t.pool_id %}" class="text-decoration-none">
+                  {{ t.pool_nome|truncatechars:30 }}
+                </a>
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if t.success %}
+                <span class="badge bg-success">Sucesso</span>
+              {% elif t.success is False %}
+                <span class="badge bg-danger">Falha</span>
+              {% else %}
+                <span class="badge bg-secondary">?</span>
+              {% endif %}
+            </td>
+            <td class="text-nowrap">
+              {% if t.success is False and t.redacao_id %}
+                <form method="post" action="{% url 'fila-redisparar' t.redacao_id %}" style="display:inline">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-sm btn-outline-danger py-0"
+                          onclick="return confirm('Re-disparar avaliação desta redação?')">
+                    🔄
+                  </button>
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="8" class="text-center text-muted py-4">
+              Nenhuma tarefa encontrada no histórico.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+  setTimeout(function() { location.reload(); }, 30000);
+})();
+</script>
+{% endblock %}

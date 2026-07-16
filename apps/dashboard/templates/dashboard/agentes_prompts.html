@@ -1,0 +1,94 @@
+{% extends "dashboard/base.html" %}
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Home</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'agentes' %}">Agentes de IA</a></li>
+    <li class="breadcrumb-item active">Templates de Prompt</li>
+  </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="h4 mb-0">Templates de Prompt</h2>
+  <div class="d-flex gap-2 align-items-center">
+    <input type="text" class="form-control form-control-sm" id="busca-templates"
+           placeholder="Buscar..." style="width:200px" oninput="filtrarTemplates()">
+    <a href="{% url 'agente-prompt-novo' %}" class="btn btn-primary btn-sm">+ Novo template</a>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0 align-middle" id="tabela-templates">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-4">Nome</th>
+            <th>Tipo</th>
+            <th>Descricao</th>
+            <th>Criado em</th>
+            <th class="pe-4 text-end" style="width:120px">Acoes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for t in templates %}
+            <tr class="template-row" data-search="{{ t.nome|lower }} {{ t.descricao|default:''|lower }}">
+              <td class="ps-4">
+                <a href="{% url 'agente-prompt-editar' t.id %}" class="text-decoration-none fw-semibold">
+                  {{ t.nome }}
+                </a>
+              </td>
+              <td>
+                {% if t.tipo == 'base' %}
+                  <span class="badge bg-primary-subtle text-primary-emphasis">Base</span>
+                {% else %}
+                  <span class="badge bg-warning-subtle text-warning-emphasis">Customizado</span>
+                {% endif %}
+              </td>
+              <td class="small text-muted text-truncate" style="max-width:300px">
+                {{ t.descricao|default:"—" }}
+              </td>
+              <td class="small text-muted">{{ t.criado_em|date:"d/m/Y H:i" }}</td>
+               <td class="pe-4 text-end text-nowrap">
+                 <div class="d-flex gap-2 justify-content-end">
+                   <a href="{% url 'agente-prompt-editar' t.id %}"
+                      class="btn btn-sm btn-outline-secondary px-3">Editar</a>
+                   <a href="{% url 'agente-prompt-novo' %}?duplicar={{ t.id }}"
+                      class="btn btn-sm btn-outline-info px-3">Duplicar</a>
+                   <button class="btn btn-sm btn-outline-danger px-3"
+                           onclick="excluirPrompt('{{ t.id }}', '{{ t.nome|escapejs }}', this)">Excluir</button>
+                 </div>
+               </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="5" class="text-center text-muted py-4">
+                Nenhum template de prompt cadastrado.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+window.excluirPrompt = async function(id, nome, btn) {
+  var ok = await excluirItem('/api/v1/admin/prompts/' + id, nome, getCSRFToken());
+  if (ok) btn.closest('tr').remove();
+};
+
+(function() {
+  window.filtrarTemplates = function() {
+    var busca = document.getElementById('busca-templates').value.toLowerCase();
+    document.querySelectorAll('.template-row').forEach(function(row) {
+      var text = row.getAttribute('data-search') || '';
+      row.style.display = text.includes(busca) ? '' : 'none';
+    });
+  };
+})();
+</script>
+{% endblock %}

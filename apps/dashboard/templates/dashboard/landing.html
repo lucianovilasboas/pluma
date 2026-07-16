@@ -1,0 +1,908 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Pluma — Escreva com leveza</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-3.0.1.min.js"></script>
+    <style>
+      :root {
+        --color-bg-dark: #0f172a;
+        --color-bg-section: #f8fafc;
+        --color-primary: #14b8a6;
+        --color-primary-hover: #0d9488;
+        --color-primary-subtle: rgba(20, 184, 166, 0.08);
+        --color-accent: #f59e0b;
+        --color-text: #1e293b;
+        --color-text-muted: #64748b;
+        --color-border: #e2e8f0;
+      }
+
+      *, *::before, *::after { box-sizing: border-box; }
+
+      body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        color: var(--color-text);
+        background: var(--color-bg-section);
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      .hero {
+        min-height: 100vh;
+        background:
+          radial-gradient(ellipse 70% 55% at 15% 35%, rgba(20, 184, 166, 0.12) 0%, transparent 50%),
+          radial-gradient(ellipse 50% 45% at 85% 75%, rgba(245, 158, 11, 0.06) 0%, transparent 50%),
+          radial-gradient(ellipse 60% 40% at 50% 0%, rgba(99, 102, 241, 0.06) 0%, transparent 50%),
+          linear-gradient(160deg, #0f172a 0%, #1e1b4b 40%, #0f172a 80%);
+        display: flex;
+        align-items: center;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .hero-glow {
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(100px);
+        opacity: 0.3;
+        pointer-events: none;
+      }
+      .hero-glow--teal {
+        width: 500px; height: 500px;
+        background: radial-gradient(circle, rgba(20, 184, 166, 0.25) 0%, transparent 70%);
+        top: -100px; left: -100px;
+        animation: float-glow 22s ease-in-out infinite;
+      }
+      .hero-glow--amber {
+        width: 400px; height: 400px;
+        background: radial-gradient(circle, rgba(245, 158, 11, 0.15) 0%, transparent 70%);
+        bottom: -60px; right: -60px;
+        animation: float-glow 26s ease-in-out infinite 4s;
+      }
+
+      @keyframes float-glow {
+        0%, 100% { transform: translate(0, 0) scale(1); }
+        33% { transform: translate(30px, -20px) scale(1.1); }
+        66% { transform: translate(-20px, 10px) scale(0.95); }
+      }
+
+      .hero-illustration {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+      }
+
+      .hero-illustration svg {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        max-width: 900px;
+        max-height: 900px;
+        right: -5%;
+        top: 5%;
+        opacity: 0.7;
+      }
+
+      @media (min-width: 992px) {
+        .hero-illustration svg {
+          right: 0;
+          top: 0;
+          width: 55%;
+          height: 110%;
+          max-width: none;
+          max-height: none;
+        }
+      }
+
+      .hero-papyrus {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 180px;
+        pointer-events: none;
+        z-index: 1;
+        background:
+          linear-gradient(to top, rgba(15, 23, 42, 0.6) 0%, transparent 100%);
+      }
+      .hero-papyrus svg {
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 80%;
+        max-width: 700px;
+        height: auto;
+        opacity: 0.15;
+      }
+
+      .hero-content {
+        position: relative;
+        z-index: 3;
+        width: 100%;
+      }
+
+      .hero-wordmark {
+        font-weight: 800;
+        font-size: 1rem;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: var(--color-primary);
+        margin-bottom: 1.5rem;
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+      }
+      .hero-wordmark svg {
+        flex-shrink: 0;
+      }
+      .hero-wordmark::after {
+        content: '';
+        position: absolute;
+        bottom: -6px;
+        left: 0;
+        width: 32px;
+        height: 2px;
+        background: var(--color-primary);
+        border-radius: 1px;
+      }
+
+      .hero-title {
+        font-size: clamp(2.4rem, 5.5vw, 4rem);
+        font-weight: 800;
+        line-height: 1.1;
+        color: #fff;
+        margin-bottom: 0.5rem;
+      }
+      .hero-title .highlight {
+        color: var(--color-primary);
+      }
+
+      .hero-tagline {
+        font-size: clamp(1.1rem, 2vw, 1.4rem);
+        font-weight: 400;
+        color: #e2e8f0;
+        font-style: italic;
+        margin-bottom: 1.25rem;
+        opacity: 0.8;
+      }
+
+      .hero-sub {
+        font-size: clamp(0.95rem, 1.5vw, 1.1rem);
+        color: #94a3b8;
+        line-height: 1.7;
+        margin-bottom: 0.5rem;
+        max-width: 520px;
+      }
+
+      .hero-meta {
+        font-size: 0.85rem;
+        color: #64748b;
+        margin-bottom: 2rem;
+      }
+      .hero-meta span {
+        display: inline-block;
+        margin-right: 1.5rem;
+      }
+      .hero-meta svg {
+        vertical-align: -2px;
+        margin-right: 4px;
+      }
+
+      .btn-primary-custom {
+        background: var(--color-primary);
+        border: none;
+        color: #fff;
+        font-weight: 600;
+        padding: 0.75rem 2rem;
+        border-radius: 8px;
+        transition: all 0.25s ease;
+      }
+      .btn-primary-custom:hover {
+        background: var(--color-primary-hover);
+        transform: translateY(-1px);
+        box-shadow: 0 8px 24px rgba(20, 184, 166, 0.3);
+        color: #fff;
+      }
+
+      .btn-outline-custom {
+        background: transparent;
+        border: 1.5px solid rgba(255,255,255,0.2);
+        color: #e2e8f0;
+        font-weight: 500;
+        padding: 0.75rem 2rem;
+        border-radius: 8px;
+        transition: all 0.25s ease;
+      }
+      .btn-outline-custom:hover {
+        border-color: rgba(255,255,255,0.5);
+        color: #fff;
+      }
+
+      .card-tipo-link:hover {
+        background: rgba(20,184,166,0.08) !important;
+        border-color: rgba(20,184,166,0.35) !important;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(20,184,166,0.12);
+      }
+
+      .radar-wrapper {
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 16px;
+        padding: 1rem;
+        backdrop-filter: blur(8px);
+        opacity: 0;
+        animation: fade-in 1.5s ease 0.5s forwards;
+        position: relative;
+        z-index: 3;
+      }
+      @keyframes fade-in {
+        to { opacity: 1; }
+      }
+      #radar-chart {
+        width: 100%;
+        min-height: 320px;
+      }
+
+      .section-header {
+        text-align: center;
+        margin-bottom: 3.5rem;
+      }
+      .section-header h2 {
+        font-size: clamp(1.6rem, 3vw, 2.2rem);
+        font-weight: 700;
+        margin-bottom: 0.75rem;
+      }
+      .section-header p {
+        color: var(--color-text-muted);
+        max-width: 560px;
+        margin: 0 auto;
+      }
+
+      .ink-divider {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        margin-bottom: 3rem;
+      }
+      .ink-divider .line {
+        height: 1px;
+        background: var(--color-border);
+        flex: 1;
+        max-width: 80px;
+      }
+      .ink-divider svg {
+        width: 24px;
+        height: 24px;
+        color: var(--color-primary);
+        opacity: 0.5;
+      }
+
+      .step-card {
+        text-align: center;
+        padding: 2.5rem 1.5rem;
+        border-radius: 16px;
+        background: #fff;
+        border: 1px solid var(--color-border);
+        transition: all 0.3s ease;
+      }
+      .step-card:hover {
+        box-shadow: 0 12px 40px rgba(0,0,0,0.06);
+        transform: translateY(-2px);
+      }
+      .step-number {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 48px; height: 48px;
+        border-radius: 12px;
+        background: var(--color-primary-subtle);
+        color: var(--color-primary);
+        font-weight: 700;
+        font-size: 1.1rem;
+        margin-bottom: 1rem;
+      }
+      .step-icon {
+        width: 40px; height: 40px;
+        margin-bottom: 0.75rem;
+        color: var(--color-primary);
+      }
+      .step-card h3 {
+        font-size: 1.05rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+      }
+      .step-card p {
+        font-size: 0.9rem;
+        color: var(--color-text-muted);
+        margin: 0;
+        line-height: 1.6;
+      }
+      .step-arrow {
+        display: none;
+        color: var(--color-border);
+      }
+      @media (min-width: 768px) {
+        .step-arrow {
+          display: flex;
+          align-items: center;
+          font-size: 1.5rem;
+          color: #cbd5e1;
+          flex-shrink: 0;
+        }
+      }
+
+      .feature-card {
+        padding: 2rem;
+        border-radius: 16px;
+        background: #fff;
+        border: 1px solid var(--color-border);
+        transition: all 0.3s ease;
+      }
+      .feature-card:hover {
+        transform: scale(1.02);
+        box-shadow: 0 12px 40px rgba(0,0,0,0.06);
+      }
+      .feature-icon {
+        width: 44px; height: 44px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--color-primary-subtle);
+        color: var(--color-primary);
+        margin-bottom: 1rem;
+        font-size: 1.2rem;
+      }
+      .feature-card h3 {
+        font-size: 1rem;
+        font-weight: 700;
+        margin-bottom: 0.4rem;
+      }
+      .feature-card p {
+        font-size: 0.85rem;
+        color: var(--color-text-muted);
+        margin: 0;
+        line-height: 1.6;
+      }
+
+      .stats-section {
+        background:
+          radial-gradient(ellipse 60% 50% at 30% 40%, rgba(20, 184, 166, 0.08) 0%, transparent 50%),
+          linear-gradient(160deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+        color: #fff;
+      }
+      .stats-section .section-header h2 { color: #fff; }
+      .stats-section .section-header p { color: #94a3b8; }
+
+      .stat-number {
+        font-size: clamp(2.5rem, 5vw, 3.5rem);
+        font-weight: 800;
+        line-height: 1;
+        color: var(--color-primary);
+        margin-bottom: 0.5rem;
+      }
+      .stat-label {
+        font-size: 0.9rem;
+        color: #94a3b8;
+        margin: 0;
+      }
+      .stat-card {
+        text-align: center;
+        padding: 2.5rem 1rem;
+      }
+
+      .site-footer {
+        background: #0b1120;
+        color: #64748b;
+        font-size: 0.85rem;
+      }
+      .site-footer a {
+        color: #94a3b8;
+        text-decoration: none;
+        transition: color 0.2s;
+      }
+      .site-footer a:hover { color: #fff; }
+
+      .reveal {
+        opacity: 0;
+        transform: translateY(30px);
+        transition: opacity 0.7s ease, transform 0.7s ease;
+      }
+      .reveal.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      .reveal-d1 { transition-delay: 0.1s; }
+      .reveal-d2 { transition-delay: 0.25s; }
+      .reveal-d3 { transition-delay: 0.4s; }
+
+      @media (max-width: 767.98px) {
+        .hero { min-height: auto; padding: 6rem 0 4rem; }
+        .hero-title { font-size: 1.8rem; }
+        .hero-meta span { display: block; margin-bottom: 0.3rem; }
+        .hero-illustration svg { width: 80%; height: auto; right: -20%; top: 10%; }
+        #radar-chart { min-height: 260px; }
+        .stat-number { font-size: 2rem; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
+        .radar-wrapper { opacity: 1; }
+        .reveal { opacity: 1; transform: none; }
+      }
+    </style>
+  </head>
+  <body>
+
+    <section class="hero">
+      <div class="hero-glow hero-glow--teal" aria-hidden="true"></div>
+      <div class="hero-glow hero-glow--amber" aria-hidden="true"></div>
+
+      <div class="hero-illustration" aria-hidden="true">
+        <svg viewBox="0 0 600 700" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="plumaGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#14b8a6" stop-opacity="0.25" />
+              <stop offset="40%" stop-color="#14b8a6" stop-opacity="0.08" />
+              <stop offset="100%" stop-color="#0f172a" stop-opacity="0" />
+            </linearGradient>
+            <linearGradient id="plumaStroke" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#5eead4" stop-opacity="0.4" />
+              <stop offset="100%" stop-color="#14b8a6" stop-opacity="0.1" />
+            </linearGradient>
+            <linearGradient id="quillGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#14b8a6" stop-opacity="0.5" />
+              <stop offset="100%" stop-color="#0d9488" stop-opacity="0.15" />
+            </linearGradient>
+            <linearGradient id="paperGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#fef3c7" stop-opacity="0.04" />
+              <stop offset="80%" stop-color="#fef3c7" stop-opacity="0.01" />
+              <stop offset="100%" stop-color="#0f172a" stop-opacity="0" />
+            </linearGradient>
+          </defs>
+
+          <g transform="translate(160, 20) rotate(18)">
+            <path d="M 140 50
+                     C 60 90, 20 200, 50 300
+                     C 70 370, 110 410, 130 420
+                     L 140 425
+                     L 150 420
+                     C 170 410, 210 370, 230 300
+                     C 260 200, 220 90, 140 50 Z"
+                  fill="url(#plumaGrad)"
+                  stroke="url(#plumaStroke)"
+                  stroke-width="0.8" />
+
+            <path d="M 140 50 L 140 425"
+                  stroke="#14b8a6"
+                  stroke-width="1.2"
+                  opacity="0.35" />
+
+            <path d="M 98 140 C 120 130, 135 135, 140 145"
+                  stroke="#5eead4" stroke-width="0.4" opacity="0.2" />
+            <path d="M 82 190 C 110 175, 130 180, 140 195"
+                  stroke="#5eead4" stroke-width="0.4" opacity="0.2" />
+            <path d="M 78 240 C 105 225, 128 230, 140 245"
+                  stroke="#5eead4" stroke-width="0.4" opacity="0.2" />
+            <path d="M 88 290 C 112 278, 132 282, 140 295"
+                  stroke="#5eead4" stroke-width="0.4" opacity="0.2" />
+            <path d="M 108 340 C 122 332, 135 336, 140 344"
+                  stroke="#5eead4" stroke-width="0.4" opacity="0.2" />
+
+            <path d="M 182 140 C 160 130, 145 135, 140 145"
+                  stroke="#5eead4" stroke-width="0.4" opacity="0.2" />
+            <path d="M 198 190 C 170 175, 150 180, 140 195"
+                  stroke="#5eead4" stroke-width="0.4" opacity="0.2" />
+            <path d="M 202 240 C 175 225, 152 230, 140 245"
+                  stroke="#5eead4" stroke-width="0.4" opacity="0.2" />
+            <path d="M 192 290 C 168 278, 148 282, 140 295"
+                  stroke="#5eead4" stroke-width="0.4" opacity="0.2" />
+            <path d="M 172 340 C 158 332, 145 336, 140 344"
+                  stroke="#5eead4" stroke-width="0.4" opacity="0.2" />
+
+            <path d="M 140 425
+                     C 140 460, 138 480, 136 500
+                     L 136 530"
+                  stroke="#14b8a6" stroke-width="1.5" opacity="0.3" />
+
+            <path d="M 136 530
+                     L 140 550
+                     L 136 560
+                     L 132 550 Z"
+                  fill="#14b8a6" opacity="0.35" />
+          </g>
+
+          <path d="M 380 520
+                   C 420 540, 500 555, 580 560
+                   C 560 570, 520 575, 500 578
+                   C 450 585, 400 580, 350 570
+                   C 300 560, 260 540, 240 515"
+                fill="none"
+                stroke="#14b8a6"
+                stroke-width="0.4"
+                opacity="0.08" />
+
+          <path d="M 520 510
+                   C 540 520, 560 535, 570 555
+                   C 555 560, 535 562, 510 558"
+                fill="none"
+                stroke="#f59e0b"
+                stroke-width="0.3"
+                opacity="0.06" />
+
+          <circle cx="210" cy="565" r="2" fill="#14b8a6" opacity="0.08" />
+          <circle cx="225" cy="575" r="1.2" fill="#14b8a6" opacity="0.06" />
+          <circle cx="195" cy="580" r="1.5" fill="#f59e0b" opacity="0.06" />
+
+          <g transform="translate(30, 590)">
+            <path d="M 0 0
+                     C 80 -10, 200 -15, 340 -8
+                     C 480 -1, 580 8, 600 12
+                     L 600 20
+                     C 580 16, 480 8, 340 2
+                     C 200 -4, 80 0, 0 8 Z"
+                  fill="url(#paperGrad)" />
+            <path d="M 600 12
+                     C 590 18, 570 22, 540 20
+                     C 510 18, 490 12, 480 8"
+                  fill="none"
+                  stroke="#fef3c7"
+                  stroke-width="0.3"
+                  opacity="0.03" />
+          </g>
+        </svg>
+      </div>
+
+      <div class="hero-papyrus">
+        <svg viewBox="0 0 700 120" fill="none" preserveAspectRatio="xMidYMid meet">
+          <path d="M 0 60
+                   C 100 30, 200 80, 350 50
+                   C 500 20, 600 70, 700 40
+                   L 700 120 L 0 120 Z"
+                fill="none" stroke="#fef3c7" stroke-width="0.3" opacity="0.06" />
+          <path d="M 0 80
+                   C 150 50, 250 90, 400 65
+                   C 550 40, 650 80, 700 55"
+                fill="none" stroke="#fef3c7" stroke-width="0.2" opacity="0.04" />
+        </svg>
+      </div>
+
+      <div class="hero-content">
+        <div class="container">
+          <div class="row align-items-center g-5">
+            <div class="col-lg-6">
+              <div class="hero-wordmark">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="18" height="18">
+                  <path d="M12 2 C18 2 22 6 22 12 C22 18 18 21 12 22 C6 21 2 18 2 12 C2 6 6 2 12 2Z" fill="#14b8a6" fill-opacity="0.08"/>
+                  <path d="M12 2 L12 20" stroke="#14b8a6" stroke-width="1" stroke-linecap="round"/>
+                  <path d="M12 5 L7 4.5 M12 8 L4 8 M12 11 L3 12 M12 14 L4 16 M12 17 L7 18.5" stroke="#14b8a6" stroke-width="0.5" opacity="0.35" stroke-linecap="round"/>
+                  <path d="M12 5 L17 4.5 M12 8 L20 8 M12 11 L21 12 M12 14 L20 16 M12 17 L17 18.5" stroke="#14b8a6" stroke-width="0.5" opacity="0.35" stroke-linecap="round"/>
+                  <path d="M12 20 L12 21" stroke="#14b8a6" stroke-width="0.7" opacity="0.4" stroke-linecap="round"/>
+                  <path d="M11.2 21 L12 23 L12.8 21" stroke="#14b8a6" stroke-width="0.6" opacity="0.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                </svg>
+                Pluma
+              </div>
+              <h1 class="hero-title">
+                Escreva com<br>
+                <span class="highlight">leveza</span>
+              </h1>
+              <p class="hero-tagline">
+                &ldquo;Na ponta da pluma, cada palavra ganha sentido.&rdquo;
+              </p>
+              <p class="hero-sub">
+                Plataforma inteligente de correção de redações para o ENEM.
+                Envie seu texto, receba notas detalhadas nas 5 competências
+                e acompanhe sua evolução com gráficos interativos.
+              </p>
+              <div class="hero-meta">
+                <span>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l3 2"/></svg>
+                  Correção em instantes
+                </span>
+                <span>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 8a7 7 0 1 0 14 0A7 7 0 0 0 1 8z"/><path d="M5.5 4.5 8 8l-2.5 3.5"/></svg>
+                  Matriz ENEM completa
+                </span>
+                <span>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12h12M2 4h12M2 8h8"/></svg>
+                  Gráfico radar por competência
+                </span>
+              </div>
+              <div class="row g-3 mt-3">
+                <div class="col-md-4">
+                  <a href="/register?tipo=aluno" class="card card-tipo-link text-decoration-none h-100" style="background:rgba(255,255,255,0.03);border:1px solid rgba(20,184,166,0.12);border-radius:12px;transition:all .25s">
+                    <div class="card-body text-center p-4">
+                      <h3 class="h5 mb-2" style="color:#14b8a6">Sou Aluno</h3>
+                      <p class="small mb-0" style="color:rgba(255,255,255,0.5);min-height:2.5rem">Praticar redação e melhorar minha nota</p>
+                    </div>
+                  </a>
+                </div>
+                <div class="col-md-4">
+                  <a href="/register?tipo=professor" class="card card-tipo-link text-decoration-none h-100" style="background:rgba(255,255,255,0.03);border:1px solid rgba(20,184,166,0.12);border-radius:12px;transition:all .25s">
+                    <div class="card-body text-center p-4">
+                      <h3 class="h5 mb-2" style="color:#14b8a6">Sou Professor</h3>
+                      <p class="small mb-0" style="color:rgba(255,255,255,0.5);min-height:2.5rem">Acompanhar a evolução dos meus alunos</p>
+                    </div>
+                  </a>
+                </div>
+                <div class="col-md-4">
+                  <a href="/register?tipo=corretor" class="card card-tipo-link text-decoration-none h-100" style="background:rgba(255,255,255,0.03);border:1px solid rgba(20,184,166,0.12);border-radius:12px;transition:all .25s">
+                    <div class="card-body text-center p-4">
+                      <h3 class="h5 mb-2" style="color:#14b8a6">Sou Corretor</h3>
+                      <p class="small mb-0" style="color:rgba(255,255,255,0.5);min-height:2.5rem">Avaliar redações com inteligência artificial</p>
+                    </div>
+                  </a>
+                </div>
+              </div>
+              <div class="row mt-3">
+                <div class="col-12">
+                  <a href="/login" class="btn btn-outline-custom w-100">Já tenho conta &mdash; Entrar</a>
+                </div>
+              </div>
+            </div>
+            <div class="col-lg-6">
+              <div class="radar-wrapper">
+                <div id="radar-chart"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="py-5" style="background:var(--color-bg-section);">
+      <div class="container py-4">
+        <div class="section-header">
+          <h2>Como funciona</h2>
+          <p>Três passos simples para receber a correção completa da sua redação</p>
+        </div>
+        <div class="row align-items-start justify-content-center g-4">
+          <div class="col-md-4 reveal">
+            <div class="step-card">
+              <div class="step-number">1</div>
+              <svg class="step-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 3v4a1 1 0 0 0 1 1h4"/>
+                <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/>
+                <path d="M9 13h6M12 10v6"/>
+              </svg>
+              <h3>Envie sua redação</h3>
+              <p>Escolha um tema ou use a proposta do ENEM e escreva sua redação diretamente na plataforma.</p>
+            </div>
+          </div>
+          <div class="step-arrow">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+          </div>
+          <div class="col-md-4 reveal reveal-d1">
+            <div class="step-card">
+              <div class="step-number">2</div>
+              <svg class="step-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 6v6l4 2"/>
+              </svg>
+              <h3>Avaliação inteligente</h3>
+              <p>IA treinada na matriz ENEM avalia sua redação nas 5 competências, com justificativas e sugestões.</p>
+            </div>
+          </div>
+          <div class="step-arrow">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+          </div>
+          <div class="col-md-4 reveal reveal-d2">
+            <div class="step-card">
+              <div class="step-number">3</div>
+              <svg class="step-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 3v18h18"/>
+                <path d="M7 16l4-8 4 4 4-6"/>
+              </svg>
+              <h3>Nota e feedback</h3>
+              <p>Veja sua nota total, o gráfico radar por competência e o feedback detalhado para evoluir.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="py-5" style="background:#fff;">
+      <div class="container py-4">
+        <div class="section-header">
+          <h2>Recursos</h2>
+          <p>Tudo que você precisa para praticar e melhorar suas redações</p>
+        </div>
+        <div class="row g-4">
+          <div class="col-md-6 col-lg-3 reveal">
+            <div class="feature-card">
+              <div class="feature-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              </div>
+              <h3>Correção automática</h3>
+              <p>IA especializada treinada na matriz de competências do ENEM para avaliar sua redação.</p>
+            </div>
+          </div>
+          <div class="col-md-6 col-lg-3 reveal reveal-d1">
+            <div class="feature-card">
+              <div class="feature-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              </div>
+              <h3>Múltiplos avaliadores</h3>
+              <p>Média de correções de diferentes profissionais para uma nota mais justa e equilibrada.</p>
+            </div>
+          </div>
+          <div class="col-md-6 col-lg-3 reveal reveal-d2">
+            <div class="feature-card">
+              <div class="feature-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 4 4-6"/></svg>
+              </div>
+              <h3>Gráficos interativos</h3>
+              <p>Visualize seu desempenho com gráfico radar, histograma de notas e evolução ao longo do tempo.</p>
+            </div>
+          </div>
+          <div class="col-md-6 col-lg-3 reveal reveal-d3">
+            <div class="feature-card">
+              <div class="feature-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6"/><path d="M9 15l3-3 3 3"/></svg>
+              </div>
+              <h3>Feedback detalhado</h3>
+              <p>Justificativa e sugestão de melhoria para cada uma das 5 competências avaliadas.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="stats-section py-5">
+      <div class="container py-4">
+        <div class="section-header">
+          <h2>Números da plataforma</h2>
+          <p>Juntos estamos transformando a prática de redação</p>
+        </div>
+        <div class="row g-4 justify-content-center">
+          <div class="col-4 reveal">
+            <div class="stat-card">
+              <div class="stat-number" data-count="{{ total_redacoes }}">0</div>
+              <p class="stat-label">Redações corrigidas</p>
+            </div>
+          </div>
+          <div class="col-4 reveal reveal-d1">
+            <div class="stat-card">
+              <div class="stat-number" data-count="{{ total_avaliacoes }}">0</div>
+              <p class="stat-label">Avaliações realizadas</p>
+            </div>
+          </div>
+          <div class="col-4 reveal reveal-d2">
+            <div class="stat-card">
+              <div class="stat-number" data-count="{{ total_alunos }}">0</div>
+              <p class="stat-label">Alunos ativos</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="site-footer py-4">
+      <div class="container">
+        <div class="row align-items-center">
+          <div class="col-md-6 mb-2 mb-md-0">
+            <span class="fw-semibold" style="color:#94a3b8;">Pluma</span> &mdash; Plataforma de correção de redações &copy; 2026
+          </div>
+          <div class="col-md-6 text-md-end">
+            <a href="#" class="me-3">Termos</a>
+            <a href="#" class="me-3">Privacidade</a>
+            <a href="#">Contato</a>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+        var radarEl = document.getElementById('radar-chart');
+        if (radarEl) {
+          var data = [{
+            type: 'scatterpolar',
+            r: [160, 140, 180, 156, 130, 160],
+            theta: ['Norma', 'Tema', 'Argumentação', 'Coesão', 'Intervenção', 'Norma'],
+            fill: 'toself',
+            name: 'Exemplo',
+            line: { color: '#14b8a6', width: 2 },
+            fillcolor: 'rgba(20, 184, 166, 0.15)'
+          }];
+          var layout = {
+            polar: {
+              radialaxis: {
+                visible: true,
+                range: [0, 200],
+                tickfont: { size: 10, color: '#64748b' },
+                gridcolor: 'rgba(148, 163, 184, 0.15)',
+                linecolor: 'rgba(148, 163, 184, 0.2)'
+              },
+              angularaxis: {
+                tickfont: { size: 11, color: '#94a3b8', family: 'Inter' },
+                gridcolor: 'rgba(148, 163, 184, 0.1)',
+                linecolor: 'rgba(148, 163, 184, 0.15)'
+              },
+              bgcolor: 'rgba(0,0,0,0)'
+            },
+            paper_bgcolor: 'rgba(0,0,0,0)',
+            plot_bgcolor: 'rgba(0,0,0,0)',
+            margin: { l: 50, r: 50, t: 10, b: 10 },
+            font: { color: '#94a3b8', family: 'Inter, sans-serif' },
+            showlegend: false,
+            hovermode: false
+          };
+          Plotly.newPlot('radar-chart', data, layout, {
+            responsive: true,
+            staticPlot: false,
+            displayModeBar: false
+          });
+        }
+
+        var revealEls = document.querySelectorAll('.reveal');
+        if (revealEls.length && 'IntersectionObserver' in window) {
+          var observer = new IntersectionObserver(function (entries) {
+            entries.forEach(function (entry) {
+              if (entry.isIntersecting) {
+                entry.target.classList.add('visible');
+                observer.unobserve(entry.target);
+              }
+            });
+          }, { threshold: 0.15 });
+          revealEls.forEach(function (el) { observer.observe(el); });
+        } else {
+          revealEls.forEach(function (el) { el.classList.add('visible'); });
+        }
+
+        var counters = document.querySelectorAll('.stat-number[data-count]');
+        if (counters.length && 'IntersectionObserver' in window) {
+          var counterObserver = new IntersectionObserver(function (entries) {
+            entries.forEach(function (entry) {
+              if (entry.isIntersecting) {
+                var el = entry.target;
+                var target = parseInt(el.getAttribute('data-count'), 10);
+                if (target > 0) {
+                  var start = performance.now();
+                  var duration = 2000;
+                  function update(now) {
+                    var progress = Math.min((now - start) / duration, 1);
+                    var eased = 1 - Math.pow(1 - progress, 3);
+                    el.textContent = Math.floor(eased * target);
+                    if (progress < 1) requestAnimationFrame(update);
+                  }
+                  requestAnimationFrame(update);
+                } else {
+                  el.textContent = '0';
+                }
+                counterObserver.unobserve(el);
+              }
+            });
+          }, { threshold: 0.5 });
+          counters.forEach(function (el) { counterObserver.observe(el); });
+        } else {
+          counters.forEach(function (el) {
+            el.textContent = el.getAttribute('data-count') || '0';
+          });
+        }
+
+      });
+    </script>
+  </body>
+</html>

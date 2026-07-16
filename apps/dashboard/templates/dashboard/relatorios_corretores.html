@@ -1,0 +1,245 @@
+{% extends "dashboard/base.html" %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Home</a></li>
+    <li class="breadcrumb-item"><a href="/dashboard/relatorios">Relatórios</a></li>
+    <li class="breadcrumb-item active">Corretores</li>
+  </ol>
+</nav>
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <h2 class="h4 mb-0">Relatórios — Corretores</h2>
+  <div class="d-flex align-items-center gap-2">
+    <a href="/dashboard/relatorios" class="btn btn-sm btn-outline-secondary">Alunos</a>
+    <form method="get" class="d-flex align-items-center gap-2">
+      <label for="corretor" class="form-label mb-0 small text-muted">Corretor IA:</label>
+      <select name="corretor" id="corretor" class="form-select form-select-sm" style="width:auto;min-width:180px;" onchange="this.form.submit()">
+        <option value="">Todos</option>
+        {% for ia in ia_list %}
+      <option value="{{ ia.id }}" {% if selected_ia == ia.id|stringformat:'s' %}selected{% endif %}>
+        {{ ia.nome }} ({{ ia.total }})
+      </option>
+        {% endfor %}
+      </select>
+    </form>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center">
+      <div class="card-body py-3">
+        <div class="text-muted small">Corretores IA</div>
+        <div class="fs-4 fw-bold text-primary">{{ total_ias }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center">
+      <div class="card-body py-3">
+        <div class="text-muted small">Corretores humanos</div>
+        <div class="fs-4 fw-bold text-info">{{ total_humanas }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center">
+      <div class="card-body py-3">
+        <div class="text-muted small">Nota média IA</div>
+        <div class="fs-4 fw-bold text-success">{{ media_ia|default:"—" }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center">
+      <div class="card-body py-3">
+        <div class="text-muted small">Desvio padrão IA</div>
+        <div class="fs-4 fw-bold text-warning">{{ std_ia|default:"—" }} pts</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if ranking_json or calibracao_json %}
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white">
+    <h5 class="mb-0">Consistência e Perfil dos Corretores IA</h5>
+  </div>
+  <div class="card-body">
+    <div class="row g-3">
+      {% if ranking_json %}
+      <div class="col-12 col-lg-6">
+        <div id="ranking-chart"></div>
+      </div>
+      {% endif %}
+      {% if calibracao_json %}
+      <div class="col-12 col-lg-6">
+        <div id="calibracao-chart"></div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if anotacoes_profile_json %}
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white">
+    <h5 class="mb-0">Perfil de Anotações por Corretor IA</h5>
+  </div>
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-12">
+        <div id="anotacoes-profile-chart"></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if ia_humano_detailed_json or ia_humano_comp_json %}
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white">
+    <h5 class="mb-0">
+      Comparativo IA vs Humano
+      <small class="text-muted ms-2">(baseado em redações com ambas avaliações)</small>
+    </h5>
+  </div>
+  <div class="card-body">
+    <div class="row g-3">
+      {% if ia_humano_detailed_json %}
+      <div class="col-12 col-lg-6">
+        <div id="ia-humano-detailed-chart"></div>
+      </div>
+      {% endif %}
+      {% if ia_humano_comp_json %}
+      <div class="col-12 col-lg-6">
+        <div id="ia-humano-comp-chart"></div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if modelos_media_json or modelos_std_json %}
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white">
+    <h5 class="mb-0">Comparação entre Modelos LLM</h5>
+  </div>
+  <div class="card-body">
+    <div class="row g-3">
+      {% if modelos_media_json %}
+      <div class="col-12 col-lg-6">
+        <div id="modelos-media-chart"></div>
+      </div>
+      {% endif %}
+      {% if modelos_std_json %}
+      <div class="col-12 col-lg-6">
+        <div id="modelos-std-chart"></div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if tendencia_total_json %}
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <h5 class="mb-0">Tendência Temporal — Média Móvel com Desvio Padrão</h5>
+    <form method="get" class="d-flex align-items-center gap-2 flex-wrap">
+      {% if selected_ia %}
+      <input type="hidden" name="corretor" value="{{ selected_ia }}">
+      {% endif %}
+      <label for="tendencia-window" class="form-label mb-0 small text-muted">Janela:</label>
+      <select name="window" id="tendencia-window" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
+        <option value="3" {% if tendencia_window == 3 %}selected{% endif %}>3 avaliações</option>
+        <option value="5" {% if tendencia_window == 5 %}selected{% endif %}>5 avaliações</option>
+        <option value="7" {% if tendencia_window == 7 %}selected{% endif %}>7 avaliações</option>
+        <option value="10" {% if tendencia_window == 10 %}selected{% endif %}>10 avaliações</option>
+        <option value="15" {% if tendencia_window == 15 %}selected{% endif %}>15 avaliações</option>
+        <option value="20" {% if tendencia_window == 20 %}selected{% endif %}>20 avaliações</option>
+      </select>
+      <label for="tendencia-group" class="form-label mb-0 small text-muted ms-2">Agrupar:</label>
+      <select name="group_by" id="tendencia-group" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
+        <option value="modelo" {% if tendencia_group_by == "modelo" %}selected{% endif %}>Modelo LLM</option>
+        <option value="corretor" {% if tendencia_group_by == "corretor" %}selected{% endif %}>Corretor</option>
+      </select>
+      <label for="tendencia-agregacao" class="form-label mb-0 small text-muted ms-2">Agregação:</label>
+      <select name="agregacao" id="tendencia-agregacao" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
+        <option value="nenhuma" {% if tendencia_agregacao == "nenhuma" %}selected{% endif %}>Nenhuma</option>
+        <option value="dia" {% if tendencia_agregacao == "dia" %}selected{% endif %}>Dia</option>
+        <option value="hora" {% if tendencia_agregacao == "hora" %}selected{% endif %}>Hora</option>
+      </select>
+    </form>
+  </div>
+  <div class="card-body">
+    <div id="tendencia-total-chart" class="mb-3"></div>
+    <hr class="my-3">
+    <div class="row g-3">
+      <div class="col-12 col-lg-6">
+        <div id="tendencia-comp1-chart"></div>
+      </div>
+      <div class="col-12 col-lg-6">
+        <div id="tendencia-comp2-chart"></div>
+      </div>
+      <div class="col-12 col-lg-6">
+        <div id="tendencia-comp3-chart"></div>
+      </div>
+      <div class="col-12 col-lg-6">
+        <div id="tendencia-comp4-chart"></div>
+      </div>
+      <div class="col-12 col-lg-6">
+        <div id="tendencia-comp5-chart"></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    {% if ranking_json %}
+    Plotly.newPlot("ranking-chart", {{ ranking_json|safe }}.data, {{ ranking_json|safe }}.layout, {responsive: true});
+    {% endif %}
+    {% if calibracao_json %}
+    Plotly.newPlot("calibracao-chart", {{ calibracao_json|safe }}.data, {{ calibracao_json|safe }}.layout, {responsive: true});
+    {% endif %}
+    {% if anotacoes_profile_json %}
+    Plotly.newPlot("anotacoes-profile-chart", {{ anotacoes_profile_json|safe }}.data, {{ anotacoes_profile_json|safe }}.layout, {responsive: true});
+    {% endif %}
+    {% if ia_humano_detailed_json %}
+    Plotly.newPlot("ia-humano-detailed-chart", {{ ia_humano_detailed_json|safe }}.data, {{ ia_humano_detailed_json|safe }}.layout, {responsive: true});
+    {% endif %}
+    {% if ia_humano_comp_json %}
+    Plotly.newPlot("ia-humano-comp-chart", {{ ia_humano_comp_json|safe }}.data, {{ ia_humano_comp_json|safe }}.layout, {responsive: true});
+    {% endif %}
+    {% if modelos_media_json %}
+    Plotly.newPlot("modelos-media-chart", {{ modelos_media_json|safe }}.data, {{ modelos_media_json|safe }}.layout, {responsive: true});
+    {% endif %}
+    {% if modelos_std_json %}
+    Plotly.newPlot("modelos-std-chart", {{ modelos_std_json|safe }}.data, {{ modelos_std_json|safe }}.layout, {responsive: true});
+    {% endif %}
+    {% if tendencia_total_json %}
+    Plotly.newPlot("tendencia-total-chart", {{ tendencia_total_json|safe }}.data, {{ tendencia_total_json|safe }}.layout, {responsive: true});
+    {% endif %}
+    {% if tendencia_comp1_json %}
+    Plotly.newPlot("tendencia-comp1-chart", {{ tendencia_comp1_json|safe }}.data, {{ tendencia_comp1_json|safe }}.layout, {responsive: true});
+    {% endif %}
+    {% if tendencia_comp2_json %}
+    Plotly.newPlot("tendencia-comp2-chart", {{ tendencia_comp2_json|safe }}.data, {{ tendencia_comp2_json|safe }}.layout, {responsive: true});
+    {% endif %}
+    {% if tendencia_comp3_json %}
+    Plotly.newPlot("tendencia-comp3-chart", {{ tendencia_comp3_json|safe }}.data, {{ tendencia_comp3_json|safe }}.layout, {responsive: true});
+    {% endif %}
+    {% if tendencia_comp4_json %}
+    Plotly.newPlot("tendencia-comp4-chart", {{ tendencia_comp4_json|safe }}.data, {{ tendencia_comp4_json|safe }}.layout, {responsive: true});
+    {% endif %}
+    {% if tendencia_comp5_json %}
+    Plotly.newPlot("tendencia-comp5-chart", {{ tendencia_comp5_json|safe }}.data, {{ tendencia_comp5_json|safe }}.layout, {responsive: true});
+    {% endif %}
+  });
+</script>
+{% endblock %}

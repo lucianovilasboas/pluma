@@ -1,0 +1,98 @@
+{% extends "dashboard/base.html" %}
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Home</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'dashboard-configuracoes' %}">Configurações</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'admin-provedores' %}">Provedores</a></li>
+    <li class="breadcrumb-item active">{{ titulo }}</li>
+  </ol>
+</nav>
+<h2 class="h4 mb-3">{{ titulo }}</h2>
+
+<form method="POST" class="row g-3">
+  {% csrf_token %}
+  <input type="hidden" name="tipo" id="provider-tipo" value="{{ form.tipo|default:'openai' }}">
+
+  <div class="col-12">
+    <label class="form-label">Modelo de provedor</label>
+    <select class="form-select" id="provider-template" onchange="onTemplateChange(this.value)"
+            {% if editando %}disabled{% endif %}>
+      <option value="">--- Selecione um modelo ---</option>
+      {% for t in templates %}
+        <option value="{{ t.slug }}"
+                data-nome="{{ t.nome }}"
+                data-base-url="{{ t.base_url }}"
+                data-tipo="{{ t.tipo }}"
+                {% if template_selecionado == t.slug %}selected{% endif %}>
+          {{ t.nome }} — {{ t.descricao }}
+        </option>
+      {% endfor %}
+    </select>
+    <div class="form-text">{% if editando %}O tipo de provedor não pode ser alterado após a criação.{% else %}Escolha um modelo para preencher automaticamente os campos abaixo.{% endif %}</div>
+  </div>
+
+  <div class="col-12 col-md-6">
+    <label class="form-label">Nome do provedor</label>
+    <input type="text" name="nome" class="form-control" id="provider-nome"
+           value="{{ form.nome|default:'' }}" required
+           placeholder="Ex: OpenAI, DeepSeek, Groq"
+           {% if editando %}readonly title="Nome não pode ser alterado"{% endif %}>
+  </div>
+
+  <div class="col-12 col-md-6">
+    <label class="form-label">Base URL</label>
+    <input type="text" name="base_url" class="form-control" id="provider-base-url"
+           value="{{ form.base_url|default:'' }}"
+           placeholder="https://api.deepseek.com (opcional para OpenAI/compatível)">
+    <div class="form-text">Deixe em branco para usar a URL padrão. Ignorado para Gemini.</div>
+  </div>
+
+  <div class="col-12 col-md-6">
+    <label class="form-label">API Key</label>
+    <input type="password" name="api_key" class="form-control" value="{{ form.api_key_raw|default:'' }}"
+           {% if editando %}placeholder="Deixe em branco para manter a atual"{% else %}required{% endif %}>
+    {% if editando %}
+    <div class="form-text">Deixe em branco para manter a chave atual.</div>
+    {% endif %}
+  </div>
+
+  <div class="col-12 col-md-6 d-flex align-items-end">
+    <div class="form-check">
+      <input type="checkbox" name="ativo" class="form-check-input" id="ativo" {% if form.ativo != False %}checked{% endif %}>
+      <label class="form-check-label" for="ativo">Ativo</label>
+    </div>
+  </div>
+
+  <div class="col-12">
+    <hr>
+    <button type="submit" class="btn btn-primary">Salvar</button>
+    <button type="submit" name="testar" value="1" class="btn btn-outline-info">Salvar e testar conexão</button>
+    <a href="/dashboard/configuracoes/provedores" class="btn btn-outline-secondary">Cancelar</a>
+  </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function onTemplateChange(slug) {
+  var sel = document.getElementById('provider-template');
+  if (!slug) {
+    document.getElementById('provider-tipo').value = 'openai';
+    document.getElementById('provider-nome').value = '';
+    document.getElementById('provider-nome').readOnly = false;
+    document.getElementById('provider-base-url').value = '';
+    document.getElementById('provider-base-url').readOnly = false;
+    return;
+  }
+  var opt = sel.querySelector('option[value="' + slug + '"]');
+  if (!opt) return;
+  var isPersonalizado = slug === 'personalizado';
+  document.getElementById('provider-tipo').value = opt.dataset.tipo || 'openai';
+  document.getElementById('provider-nome').value = isPersonalizado ? '' : (opt.dataset.nome || '');
+  document.getElementById('provider-nome').readOnly = !isPersonalizado;
+  document.getElementById('provider-base-url').value = isPersonalizado ? '' : (opt.dataset.baseUrl || '');
+  document.getElementById('provider-base-url').readOnly = !isPersonalizado;
+}
+</script>
+{% endblock %}

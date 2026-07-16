@@ -1,0 +1,230 @@
+{% extends "dashboard/base.html" %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Home</a></li>
+    <li class="breadcrumb-item active">Relatórios</li>
+  </ol>
+</nav>
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <h2 class="h4 mb-0">Relatórios Analíticos</h2>
+  {% if is_admin_prof %}
+  <form method="get" class="d-flex align-items-center gap-2">
+    <label for="aluno_id" class="form-label mb-0 small text-muted">Aluno:</label>
+    <select name="aluno_id" id="aluno_id" class="form-select form-select-sm" style="width:auto;min-width:200px;" onchange="this.form.submit()">
+      {% for a in alunos_list %}
+        <option value="{{ a.id }}" {% if selected_aluno and selected_aluno.id == a.id %}selected{% endif %}>
+          {{ a.nome_exibicao }}
+        </option>
+      {% empty %}
+        <option value="">Nenhum aluno cadastrado</option>
+      {% endfor %}
+    </select>
+  </form>
+  {% endif %}
+</div>
+
+{% if selected_aluno %}
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center">
+      <div class="card-body py-3">
+        <div class="text-muted small">Redações</div>
+        <div class="fs-4 fw-bold text-dark">{{ selected_aluno.redacoes.count }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center">
+      <div class="card-body py-3">
+        <div class="text-muted small">Nota média</div>
+        <div class="fs-4 fw-bold text-success">
+          {% if timeline_json %}
+            {{ selected_aluno.redacoes.all.0.consolidacoes.first.nota_total|default:"—" }}
+          {% else %}—{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center">
+      <div class="card-body py-3">
+        <div class="text-muted small">Total anotações</div>
+        <div class="fs-4 fw-bold text-dark">
+          {{ selected_aluno.redacoes.all.0.avaliacoes.all.0.anotacoes.count|default:"0" }}
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center">
+      <div class="card-body py-3">
+        <div class="text-muted small">C5 mín. últ. 3</div>
+        <div class="fs-4 fw-bold text-warning">
+          {% if timeline_json %}
+            {% for c in selected_aluno.redacoes.all|slice:":3" %}
+              {{ c.consolidacoes.first.c5_nota|default:"—" }}
+            {% empty %}—{% endfor %}
+          {% else %}—{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if timeline_comp_json and timeline_json %}
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white">
+    <h5 class="mb-0">Progresso por Competência — {{ selected_aluno.nome_exibicao }}</h5>
+  </div>
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-12 col-lg-8">
+        <div id="timeline-comp-chart"></div>
+      </div>
+      <div class="col-12 col-lg-4">
+        <div id="timeline-total-chart"></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body text-center py-5 text-muted">
+    <p class="mb-0">
+      {% if selected_aluno %}
+        Dados insuficientes — é necessário ter ao menos 2 redações com nota consolidada para gerar o gráfico de evolução.
+      {% else %}
+        Selecione um aluno para visualizar os relatórios.
+      {% endif %}
+    </p>
+  </div>
+</div>
+{% endif %}
+
+{% if wordcloud_json or erros_stacked_json %}
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white">
+    <h5 class="mb-0">Diagnóstico de Erros — {{ selected_aluno.nome_exibicao }}</h5>
+  </div>
+  <div class="card-body">
+    <div class="row g-3">
+      {% if wordcloud_json %}
+      <div class="col-12 col-lg-6">
+        <div id="wordcloud-chart"></div>
+      </div>
+      {% endif %}
+      {% if erros_stacked_json %}
+      <div class="col-12 col-lg-6">
+        <div id="erros-stacked-chart"></div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if is_admin_prof %}
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white">
+    <h5 class="mb-0">Qualidade dos Corretores</h5>
+  </div>
+  <div class="card-body">
+    <div class="row g-3">
+      {% if scorecard_json %}
+      <div class="col-12 col-lg-6">
+        <div id="scorecard-chart"></div>
+      </div>
+      {% endif %}
+      {% if ia_humano_json %}
+      <div class="col-12 col-lg-6">
+        <div id="ia-humano-chart"></div>
+      </div>
+      {% endif %}
+      {% if not scorecard_json and not ia_humano_json %}
+      <div class="col-12 text-center py-4 text-muted">
+        <p class="mb-0">Dados insuficientes — é necessário ter corretores humanos ativos e redações com ambas avaliações (IA + humana).</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% if temas_json or alunos_risco %}
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white">
+    <h5 class="mb-0">Alertas e Desempenho por Tema</h5>
+  </div>
+  <div class="card-body">
+    <div class="row g-3">
+      {% if temas_json %}
+      <div class="col-12 col-md-6">
+        <div id="temas-chart"></div>
+      </div>
+      {% endif %}
+      {% if alunos_risco %}
+      <div class="col-12 col-md-6">
+        <h6 class="mb-2">Alunos em Risco</h6>
+        <div class="table-responsive">
+          <table class="table table-sm mb-0">
+            <thead>
+              <tr>
+                <th>Aluno</th>
+                <th class="text-center">Média últ. 3</th>
+                <th class="text-center">C5 média</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for a in alunos_risco %}
+              <tr>
+                <td>{{ a.nome }}</td>
+                <td class="text-center"><span class="badge text-bg-danger">{{ a.media }}</span></td>
+                <td class="text-center"><span class="badge text-bg-warning">{{ a.c5 }}</span></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endif %}
+
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    {% if timeline_comp_json %}
+    var tc = {{ timeline_comp_json|safe }};
+    Plotly.newPlot("timeline-comp-chart", tc.data, tc.layout, {responsive: true});
+    {% endif %}
+    {% if timeline_json %}
+    var tt = {{ timeline_json|safe }};
+    Plotly.newPlot("timeline-total-chart", tt.data, tt.layout, {responsive: true});
+    {% endif %}
+    {% if wordcloud_json %}
+    var wc = {{ wordcloud_json|safe }};
+    Plotly.newPlot("wordcloud-chart", wc.data, wc.layout, {responsive: true});
+    {% endif %}
+    {% if erros_stacked_json %}
+    var es = {{ erros_stacked_json|safe }};
+    Plotly.newPlot("erros-stacked-chart", es.data, es.layout, {responsive: true});
+    {% endif %}
+    {% if scorecard_json %}
+    var sc = {{ scorecard_json|safe }};
+    Plotly.newPlot("scorecard-chart", sc.data, sc.layout, {responsive: true});
+    {% endif %}
+    {% if ia_humano_json %}
+    var ih = {{ ia_humano_json|safe }};
+    Plotly.newPlot("ia-humano-chart", ih.data, ih.layout, {responsive: true});
+    {% endif %}
+    {% if temas_json %}
+    var tm = {{ temas_json|safe }};
+    Plotly.newPlot("temas-chart", tm.data, tm.layout, {responsive: true});
+    {% endif %}
+  });
+</script>
+{% endblock %}

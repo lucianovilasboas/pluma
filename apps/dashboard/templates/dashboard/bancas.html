@@ -1,0 +1,185 @@
+{% extends "dashboard/base.html" %}
+{% load static dashboard_extras %}
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Home</a></li>
+    <li class="breadcrumb-item active">Bancas de Correção</li>
+  </ol>
+</nav>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="h4 mb-0">Bancas de Correção</h2>
+  <button class="btn btn-primary btn-sm" onclick="DashboardBancas.abrirModal()">
+    + Nova Banca
+  </button>
+</div>
+
+<div class="table-responsive">
+  <table class="table table-hover align-middle">
+    <thead>
+      <tr>
+        <th style="width:1%">Ordem</th>
+        <th>Nome</th>
+        <th>Método</th>
+        <th>Status</th>
+        <th>Membros</th>
+        <th>Limite</th>
+        <th>Carga</th>
+        <th>Revisor</th>
+        <th style="width:1%"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for banca in bancas %}
+        <tr>
+          <td class="text-center text-muted small">{{ banca.ordem }}</td>
+          <td class="fw-semibold">{{ banca.nome }}</td>
+          <td>{{ banca.get_metodo_display }}</td>
+          <td>
+            <div class="form-check form-switch mb-0">
+              <input class="form-check-input" type="checkbox" role="switch"
+                     id="switch-{{ banca.id }}"
+                     {% if banca.ativo %}checked{% endif %}
+                     onchange="DashboardBancas.toggle('{{ banca.id }}', this.checked)">
+              <label class="form-check-label small" for="switch-{{ banca.id }}">
+                {% if banca.ativo %}Ativo{% else %}Inativo{% endif %}
+              </label>
+            </div>
+          </td>
+          <td class="small text-muted">{{ banca.corretores.count }} membro{{ banca.corretores.count|pluralize }}</td>
+          <td class="small text-muted">{{ banca.limite_concorrencia }}</td>
+          <td class="small">
+            {% with em_curso=cargas|get_item:banca.id %}
+              {% if em_curso %}
+                <span class="{% if em_curso >= banca.limite_concorrencia %}text-danger fw-semibold{% else %}text-muted{% endif %}">
+                  {{ em_curso }}/{{ banca.limite_concorrencia }}
+                </span>
+              {% else %}
+                <span class="text-muted">0/{{ banca.limite_concorrencia }}</span>
+              {% endif %}
+            {% endwith %}
+          </td>
+          <td class="small">
+            {% if banca.revisor_corretor %}
+              {{ banca.revisor_corretor.nome }} ({{ banca.get_metodo_display|lower }})
+            {% else %}
+              <span class="text-muted">Não tem</span>
+            {% endif %}
+          </td>
+          <td class="text-nowrap">
+            <a href="{% url 'banca-detalhe' banca.id %}" class="btn btn-sm btn-outline-primary me-1" title="Detalhes">
+              Detalhes
+            </a>
+            <button class="btn btn-sm btn-outline-secondary me-1" title="Editar"
+                    onclick="DashboardBancas.abrirModal('{{ banca.id }}', '{{ banca.nome|escapejs }}', '{{ banca.metodo }}', '{{ banca.ordem }}', '{{ banca.limite_concorrencia }}')">
+              ✎
+            </button>
+            <button class="btn btn-sm btn-outline-danger me-2" title="Excluir"
+                    onclick="DashboardBancas.excluir('{{ banca.id }}', '{{ banca.nome|escapejs }}')">
+              🗑
+            </button>
+          </td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="9" class="text-center text-muted py-4">
+            Nenhuma banca de correção cadastrada.
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="modal fade" id="modal-banca" tabindex="-1">
+  <div class="modal-dialog">
+    <form class="modal-content" onsubmit="DashboardBancas.salvar(event)">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modal-banca-titulo">Nova Banca</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="banca-id" value="">
+        <div class="mb-3">
+          <label for="banca-nome" class="form-label">Nome</label>
+          <input type="text" class="form-control" id="banca-nome" required>
+        </div>
+        <div class="row g-2 mb-3">
+          <div class="col-md-4">
+            <label for="banca-ordem" class="form-label">Ordem</label>
+            <input type="number" class="form-control" id="banca-ordem" min="0" value="0">
+            <div class="form-text">Menor = maior prioridade</div>
+          </div>
+          <div class="col-md-4">
+            <label for="banca-limite-concorrencia" class="form-label">Limite</label>
+            <input type="number" class="form-control" id="banca-limite-concorrencia" min="1" value="10">
+            <div class="form-text">Máx. redações simultâneas</div>
+          </div>
+          <div class="col-md-4">
+            <label for="banca-metodo" class="form-label">Método</label>
+            <select class="form-select" id="banca-metodo" required>
+              <option value="mediana">Mediana</option>
+              <option value="media">Média</option>
+            </select>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label for="banca-descricao" class="form-label">Descrição da banca</label>
+          <textarea class="form-control" id="banca-descricao" rows="3" placeholder="Descreva o propósito desta banca..."></textarea>
+        </div>
+        <div class="mb-3">
+          <label for="banca-limiar" class="form-label">Limiar de desvio (revisor)</label>
+          <input type="number" class="form-control" id="banca-limiar" min="0" step="1" value="20">
+          <div class="form-text">Desvio padrão máximo por competência antes de acionar o revisor de consenso</div>
+        </div>
+        <div class="mb-3">
+          <label for="banca-revisor" class="form-label">Corretor revisor (consenso)</label>
+          <select class="form-select" id="banca-revisor">
+            <option value="">--- Desabilitado ---</option>
+            {% for c in corretores_llm %}
+              <option value="{{ c.id }}">{{ c.nome }} ({{ c.modelo }})</option>
+            {% endfor %}
+          </select>
+          <div class="form-text">Quando houver divergência entre os corretores, este corretor será usado como juiz</div>
+        </div>
+        <div class="mb-3">
+          <label for="banca-modo" class="form-label">Modo de avaliação</label>
+          <select class="form-select" id="banca-modo" onchange="DashboardBancas.toggleModoEspecialistas()">
+            <option value="pool">Pool de agentes (membros da banca)</option>
+            <option value="especialistas">Especialistas C1-C5 (5 agentes paralelos)</option>
+          </select>
+          <div class="form-text">
+            <strong>Pool:</strong> usa os corretores da banca com o método de consolidação configurado.
+            <strong>Especialistas:</strong> cria 5 agentes virtuais (um por competência) que avaliam em paralelo.
+          </div>
+        </div>
+        <div id="especialistas-campos">
+          <div class="mb-3">
+            <label for="banca-provedor" class="form-label">Provedor padrão</label>
+            <select class="form-select" id="banca-provedor">
+              <option value="">--- Usar env var ---</option>
+              {% for p in provedores %}
+                <option value="{{ p.id }}">{{ p.nome }}{% if p.tipo == "gemini" %} (Gemini){% endif %}</option>
+              {% endfor %}
+            </select>
+            <div class="form-text">API key e base URL deste provedor serão usadas no modo especialistas.</div>
+          </div>
+          <div class="mb-3">
+            <label for="banca-modelo-llm" class="form-label">Modelo LLM</label>
+            <input type="text" class="form-control" id="banca-modelo-llm" placeholder="Ex: gpt-4o, gemini-2.5-flash (opcional)">
+            <div class="form-text">Modelo para os agentes especialistas. Deixe vazio para usar LLM_MODEL do .env.</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-primary btn-sm">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'dashboard/js/bancas.js' %}"></script>
+{% endblock %}

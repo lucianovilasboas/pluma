@@ -1,0 +1,144 @@
+{% extends "dashboard/base.html" %}
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Home</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'rubricas' %}">Rubricas</a></li>
+    <li class="breadcrumb-item active">{% if rubrica %}Editar{% else %}Nova{% endif %}</li>
+  </ol>
+</nav>
+<h2 class="h4 mb-3">
+  {% if rubrica %}Editar Rubrica{% else %}Nova Rubrica{% endif %}
+</h2>
+
+<form method="post">
+  {% csrf_token %}
+  <div class="row g-3">
+    <div class="col-12 col-md-6">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-3">
+          <h5 class="mb-0 small text-uppercase text-muted fw-semibold">Identificação</h5>
+        </div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label small fw-semibold text-muted">Nome</label>
+            <input type="text" class="form-control" name="nome"
+                   value="{{ rubrica.nome|default:'' }}" required
+                   placeholder="Ex: Rubrica C1 padrão">
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold text-muted">Competência</label>
+            <select class="form-select" name="competencia" required>
+              {% for slug, label in competencias %}
+                <option value="{{ slug }}" {% if rubrica.competencia == slug %}selected{% endif %}>
+                  {{ label }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="row g-2">
+            <div class="col-6">
+              <label class="form-label small fw-semibold text-muted">Versão</label>
+              <input type="number" class="form-control" name="versao" min="1"
+                     value="{{ rubrica.versao|default:'1' }}">
+            </div>
+            <div class="col-6 d-flex align-items-end">
+              <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" name="ativa" value="1"
+                       id="rubrica-ativa" {% if rubrica.ativa %}checked{% endif %}>
+                <label class="form-check-label small fw-semibold text-muted" for="rubrica-ativa">
+                  Rubrica ativa
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold text-muted">Descrição</label>
+            <textarea class="form-control" name="descricao" rows="2"
+                      placeholder="Instruções adicionais para o avaliador">{{ rubrica.descricao|default:'' }}</textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-md-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+          <h5 class="mb-0 small text-uppercase text-muted fw-semibold">Estrutura sugerida</h5>
+          <button type="button" class="btn btn-outline-secondary btn-sm"
+                  onclick="carregarExemplo()">Carregar exemplo</button>
+        </div>
+        <div class="card-body">
+          <p class="small text-muted mb-2">
+            Formato esperado da árvore de decisão (texto livre):
+          </p>
+          <pre class="bg-light p-2 rounded small mb-0" style="font-size:0.75rem;">
+--- RUBRICA — ÁRVORE DE DECISÃO ---
+
+Passo 1
+Pergunta: [descrição do que verificar no primeiro passo]
+[ ] SIM → [ação se a condição for satisfeita]
+[ ] NÃO → [ação se a condição NÃO for satisfeita]
+
+Passo 2
+Pergunta: [segunda condição a verificar]
+[ ] OPÇÃO A → [resultado]
+[ ] OPÇÃO B → [resultado]
+
+Com base nos passos acima, atribua a nota de 0 a 200.
+          </pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-3">
+          <h5 class="mb-0 small text-uppercase text-muted fw-semibold">Árvore de decisão</h5>
+        </div>
+        <div class="card-body">
+          <textarea name="arvore_texto" class="form-control font-monospace" rows="20"
+                    placeholder="Cole o texto completo da árvore de decisão aqui..."
+                    style="font-size:0.8rem;">{{ arvore_texto_previa|default:'' }}</textarea>
+          <div class="form-text small mt-2">
+            Este texto é inserido diretamente no prompt do sistema do agente especialista.
+            Use linguagem clara e objetiva — o LLM precisa interpretar cada passo com precisão.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body d-flex gap-2">
+          <button type="submit" class="btn btn-primary">Salvar rubrica</button>
+          <a href="{% url 'rubricas' %}" class="btn btn-outline-secondary">Cancelar</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+  window.carregarExemplo = function() {
+    var comp = document.querySelector('select[name="competencia"]').value;
+    var exemplos = {
+      'c1': '--- RUBRICA C1 — ÁRVORE DE DECISÃO ---\n\nPasso 1\nPergunta: O texto demonstra domínio da modalidade escrita formal?\n[ ] SIM → vá para o Passo 2\n[ ] NÃO → vá para o Passo 3\n\nPasso 2 (Há domínio básico)\nPergunta: Há mais de 20 desvios graves?\n[ ] SIM → nota máxima possível: 120\n[ ] NÃO → vá para o Passo 4\n\nPasso 3 (Sem domínio básico)\nPergunta: Os desvios comprometem a compreensão?\n[ ] SIM → nota máxima possível: 40\n[ ] NÃO → nota máxima possível: 80\n\nPasso 4\nAtribua a nota de 0 a 200. Desconte proporcionalmente conforme gravidade e frequência dos desvios.',
+      'c2': '--- RUBRICA C2 — ÁRVORE DE DECISÃO ---\n\nPasso 1\nPergunta: A redação aborda o tema e tem estrutura dissertativo-argumentativa?\n[ ] SIM → vá para o Passo 2\n[ ] NÃO → fuga total = 0; tangencia = máximo 80\n\nPasso 2\nPergunta: Há repertório sociocultural legítimo e pertinente?\n[ ] SIM → vá para o Passo 3\n[ ] NÃO → máximo 120 (paráfrase dos motivadores)\n\nPasso 3\nO repertório é usado de forma produtiva?\n[ ] SIM → máximo 200\n[ ] NÃO → máximo 160 (uso superficial ou decorativo)',
+      'c3': '--- RUBRICA C3 — ÁRVORE DE DECISÃO ---\n\nPasso 1\nPergunta: Há seleção e organização de argumentos?\n[ ] SIM → vá para o Passo 2\n[ ] NÃO → nota 0\n\nPasso 2\nPergunta: Há progressão lógica entre os argumentos?\n[ ] SIM → vá para o Passo 3\n[ ] NÃO → máximo 80 (justapostos sem progressão)\n\nPasso 3\nProjeto de texto: introdução, desenvolvimento e conclusão integrados?\n[ ] SIM, completo → máximo 200\n[ ] PARCIAL → máximo 160\n[ ] FRACO → máximo 120',
+      'c4': '--- RUBRICA C4 — ÁRVORE DE DECISÃO ---\n\nPasso 1\nPergunta: Há articulação entre as partes do texto?\n[ ] SIM → vá para o Passo 2\n[ ] NÃO → nota 0\n\nPasso 2\nPergunta: Os conectivos são variados e usados corretamente?\n[ ] SIM → vá para o Passo 3\n[ ] NÃO → máximo 120 (repetitivos ou ausentes)\n\nPasso 3\nHá coesão referencial (pronomes, sinônimos, elipses)?\n[ ] SIM → máximo 200\n[ ] PARCIAL → máximo 160\n[ ] NÃO → máximo 120',
+      'c5': '--- RUBRICA C5 — ÁRVORE DE DECISÃO ---\n\nPasso 1\nPergunta: Há proposta de intervenção relacionada ao tema?\n[ ] SIM → vá para o Passo 2\n[ ] NÃO → nota 0\n\nPasso 2\nQuantos dos 5 elementos estão explícitos? (agente, ação, meio, efeito, detalhamento)\n[ ] 5 → vá para o Passo 3\n[ ] 4 → máximo 160\n[ ] 3 → máximo 120\n[ ] 2 → máximo 80\n[ ] 1 → máximo 40\n\nPasso 3\nA proposta respeita DH e tem detalhamento concreto?\n[ ] SIM → nota 200\n[ ] PARCIAL → nota 160',
+    };
+    var texto = exemplos[comp] || '';
+    if (texto) {
+      var ta = document.querySelector('textarea[name="arvore_texto"]');
+      if (ta.value && !confirm('Substituir o texto atual pelo exemplo?')) return;
+      ta.value = texto;
+    }
+  };
+})();
+</script>
+{% endblock %}

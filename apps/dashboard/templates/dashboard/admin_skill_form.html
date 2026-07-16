@@ -1,0 +1,63 @@
+{% extends "dashboard/base.html" %}
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Home</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'agentes' %}">Agentes de IA</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'admin-skills' %}">Skills</a></li>
+    <li class="breadcrumb-item active">{{ titulo }}</li>
+  </ol>
+</nav>
+
+<h2 class="h4 mb-4">{{ titulo }}</h2>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-4">
+    <form method="POST" class="row g-4">
+      {% csrf_token %}
+
+      <div class="col-12 col-md-6">
+        <label class="form-label fw-semibold small text-uppercase text-muted">Nome</label>
+        <input type="text" name="nome" class="form-control form-control-lg"
+               value="{{ form.nome|default:'' }}" required
+               placeholder="Ex: Repertório sociocultural">
+      </div>
+
+      <div class="col-12 col-md-6">
+        <label class="form-label fw-semibold small text-uppercase text-muted">Ícone</label>
+        <input type="text" name="icone" class="form-control form-control-lg"
+               value="{{ form.icone|default:'' }}"
+               placeholder="Ex: 📚, 🧠">
+        <div class="form-text">Um emoji ou caractere para representar a skill visualmente.</div>
+      </div>
+
+      <div class="col-12">
+        <label class="form-label fw-semibold small text-uppercase text-muted">
+          Descrição
+          <span class="text-muted fw-normal text-lowercase">— o que esta skill faz</span>
+        </label>
+        <textarea name="descricao" class="form-control" rows="4"
+                  placeholder="Ex: Avalia o uso de repertório sociocultural legítimo e pertinente ao tema...">{{ form.descricao|default:'' }}</textarea>
+      </div>
+
+      <div class="col-12">
+        <label class="form-label fw-semibold small text-uppercase text-muted">
+          Competências
+          <span class="text-muted fw-normal text-lowercase">— lista JSON</span>
+        </label>
+        <textarea name="competencias" class="form-control font-monospace small" rows="6"
+                  placeholder='["C1", "C2", "C3"]'>{{ form.competencias|default:'[]' }}</textarea>
+        <div class="form-text small">Lista de competências do ENEM relacionadas (JSON). Ex: <code>["C1", "C3"]</code></div>
+      </div>
+
+      <div class="col-12">
+        <hr class="my-0">
+        <div class="d-flex gap-2 pt-3">
+          <button type="submit" class="btn btn-primary px-4">Salvar</button>
+          <a href="{% url 'admin-skills' %}" class="btn btn-outline-secondary px-4">Cancelar</a>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

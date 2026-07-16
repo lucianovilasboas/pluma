@@ -1,0 +1,580 @@
+{% extends "dashboard/base.html" %}
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Home</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'bancas' %}">Bancas de Correção</a></li>
+    <li class="breadcrumb-item active">{{ banca.nome }}</li>
+  </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <h2 class="h4 mb-1">{{ banca.nome }}</h2>
+    <div class="small text-muted">
+      Método: {{ banca.get_metodo_display }} ·
+      <span class="{% if banca.ativo %}text-success{% else %}text-secondary{% endif %} fw-semibold">
+        {% if banca.ativo %}Ativa{% else %}Inativa{% endif %}
+      </span>
+    </div>
+    {% if banca.descricao %}
+      <p class="text-muted small mt-2 mb-0">{{ banca.descricao }}</p>
+    {% endif %}
+  </div>
+  <div class="d-flex gap-2">
+    <button class="btn btn-sm btn-outline-secondary" onclick="abrirModalBanca()">Editar</button>
+    <div class="form-check form-switch d-inline-flex align-items-center mb-0">
+      <input class="form-check-input" type="checkbox" role="switch"
+             id="switch-banca"
+             {% if banca.ativo %}checked{% endif %}
+             onchange="toggleBanca(this.checked)">
+    </div>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white py-3">
+    <h5 class="mb-0 small text-uppercase text-muted fw-semibold">
+      ⚙️ Revisor de Consenso
+    </h5>
+  </div>
+  <div class="card-body">
+    {% if banca.revisor_corretor %}
+      <div class="row g-3 align-items-center">
+        <div class="col-auto">
+          <span class="fs-4">🤖</span>
+        </div>
+        <div class="col">
+          <div class="fw-semibold">{{ banca.revisor_corretor.nome }}</div>
+          <div class="small text-muted">
+            Provedor: {{ banca.revisor_corretor.provedor.nome|default:"Padrão" }}
+            · Modelo: {{ banca.revisor_corretor.modelo }}
+          </div>
+        </div>
+        <div class="col-auto">
+          <button class="btn btn-sm btn-success" onclick="abrirModalRevisor()">
+            ⚙️ Configurar
+          </button>
+        </div>
+      </div>
+      <hr class="my-3">
+      <div class="row g-2 small text-muted">
+        <div class="col-12 col-md-4">
+          <strong>Limiar de desvio:</strong> {{ banca.limiar_desvio }} pontos
+        </div>
+        <div class="col-12 col-md-4">
+          <strong>Método da banca:</strong> {{ banca.get_metodo_display }}
+        </div>
+        <div class="col-12 col-md-4">
+          <strong>Modo de atuação:</strong>
+          {% if banca.revisor_corretor %}
+            Acionado quando o desvio padrão entre corretores excede
+            {{ banca.limiar_desvio }} pontos em alguma competência
+          {% endif %}
+        </div>
+      </div>
+      <div class="row g-2 small text-muted mt-2">
+        <div class="col-12">
+          <strong>Revisões realizadas:</strong>
+          <span class="fw-semibold {% if revisor_usos > 0 %}text-success{% else %}text-muted{% endif %}">
+            {{ revisor_usos }} vez{{ revisor_usos|pluralize:"es" }}
+          </span>
+        </div>
+      </div>
+    {% else %}
+      <div class="d-flex align-items-center gap-3">
+        <span class="fs-4">❌</span>
+        <div class="flex-grow-1">
+          <div class="fw-semibold">Revisor de consenso não configurado</div>
+          <div class="small text-muted">
+            A correção sempre usará consenso automático
+            ({{ banca.get_metodo_display|lower }}) dos corretores.
+            Para ativar, configure um <strong>Corretor revisor</strong>.
+          </div>
+        </div>
+        <button class="btn btn-sm btn-outline-success" onclick="abrirModalRevisor()">
+          ⚙️ Configurar
+        </button>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+{% if banca.modo != 'especialistas' %}
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+    <h5 class="mb-0 small text-uppercase text-muted fw-semibold">Membros</h5>
+    <button class="btn btn-primary btn-sm" onclick="abrirModalMembro()">+ Adicionar membro</button>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th style="width:40px"></th>
+            <th>Nome</th>
+            <th>Tipo</th>
+            <th>Modelo</th>
+            <th>Peso</th>
+            <th>Descrição</th>
+            <th style="width:1%"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for membro in banca.corretores.all %}
+            <tr>
+              <td class="text-center">
+                {% if membro.tipo == "llm" %}🤖{% else %}🧑{% endif %}
+              </td>
+              <td class="fw-semibold">
+                {% if membro.tipo == "llm" and membro.corretor_llm %}
+                  {{ membro.corretor_llm.nome }}
+                  {% if banca.revisor_corretor and membro.corretor_llm == banca.revisor_corretor %}
+                    <span class="badge bg-warning text-dark ms-1">⭐ Revisor</span>
+                  {% endif %}
+                {% elif membro.tipo == "humano" and membro.usuario %}
+                  {{ membro.usuario.nome_exibicao }}
+                {% endif %}
+              </td>
+              <td>
+                <span class="badge bg-light text-dark">{{ membro.get_tipo_display }}</span>
+              </td>
+              <td class="small text-nowrap">
+                {% if membro.tipo == "llm" and membro.corretor_llm %}
+                  <span class="text-muted">{{ membro.corretor_llm.provedor.nome|default:"—" }}</span>
+                  <code class="small">{{ membro.corretor_llm.modelo }}</code>
+                {% else %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              </td>
+              <td class="text-center small">{{ membro.peso|floatformat:'1' }}</td>
+              <td class="small text-muted" style="max-width:300px">
+                <span class="text-truncate d-inline-block" style="max-width:300px">
+                  {% if membro.descricao %}
+                    {{ membro.descricao }}
+                  {% elif membro.tipo == "llm" and membro.corretor_llm and membro.corretor_llm.descricao %}
+                    {{ membro.corretor_llm.descricao|truncatechars:100 }}
+                  {% else %}
+                    —
+                  {% endif %}
+                </span>
+              </td>
+              <td class="text-nowrap">
+                <div class="d-flex gap-1">
+                  <a href="{% url 'membro-detalhe' banca.id membro.id %}" class="btn btn-sm btn-outline-primary">
+                    Configurações
+                  </a>
+                  {% if membro.tipo == 'llm' and membro.corretor_llm %}
+                    <a href="{% url 'agente-detalhe' membro.corretor_llm.id %}"
+                       class="btn btn-sm btn-outline-info" title="Editar agente {{ membro.corretor_llm.nome }}">
+                      Agente
+                    </a>
+                  {% endif %}
+                  <button class="btn btn-sm btn-outline-danger"
+                          onclick="removerMembro('{{ membro.id }}', '{% if membro.tipo == 'humano' and membro.usuario %}{{ membro.usuario.nome_exibicao|escapejs }}{% elif membro.tipo == 'llm' and membro.corretor_llm %}{{ membro.corretor_llm.nome|escapejs }}{% endif %}', this)">
+                    🗑
+                  </button>
+                </div>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="7" class="text-center text-muted py-4">Nenhum membro nesta banca.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="card border-0 shadow-sm mb-4 bg-light">
+  <div class="card-body py-4 text-center">
+    <span class="fs-4">🧠</span>
+    <div class="fw-semibold mt-2">Modo Especialistas</div>
+    <div class="small text-muted mt-1">
+      Neste modo, os membros individuais da banca não são utilizados.<br>
+      A correção é feita por 5 agentes especialistas virtuais (C1 a C5) que atuam em paralelo.
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div class="modal fade" id="modal-membro" tabindex="-1">
+  <div class="modal-dialog">
+    <form class="modal-content" onsubmit="adicionarMembro(event)">
+      <div class="modal-header">
+        <h5 class="modal-title">Adicionar membro</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">Tipo</label>
+          <select class="form-select" id="tipo-membro" onchange="atualizarSelectMembro()">
+            <option value="humano">Humano</option>
+            <option value="llm">IA</option>
+          </select>
+        </div>
+        <div class="mb-3" id="select-humano">
+          <label class="form-label">Corretor humano</label>
+          <select class="form-select" id="usuario-select">
+            {% for u in usuarios %}
+              <option value="{{ u.id }}">{{ u.nome_exibicao }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="mb-3 d-none" id="select-llm">
+          <label class="form-label">Corretor LLM</label>
+          <select class="form-select" id="corretor-select">
+            {% for c in corretores_llm %}
+              <option value="{{ c.id }}">{{ c.nome }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="mb-3">
+          <label for="membro-peso" class="form-label">Peso (ponderação)</label>
+          <input type="number" class="form-control" id="membro-peso" min="0.1" step="0.1" value="1.0">
+          <div class="form-text">Peso deste corretor na consolidação final das notas (padrão 1.0)</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-primary btn-sm">Adicionar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal fade" id="modal-banca" tabindex="-1">
+  <div class="modal-dialog">
+    <form class="modal-content" onsubmit="salvarBanca(event)">
+      <div class="modal-header">
+        <h5 class="modal-title">Editar Banca</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label for="banca-nome" class="form-label">Nome</label>
+          <input type="text" class="form-control" id="banca-nome" value="{{ banca.nome }}" required>
+        </div>
+        <div class="mb-3">
+          <label for="banca-metodo" class="form-label">Método de consolidação</label>
+          <select class="form-select" id="banca-metodo" required>
+            <option value="mediana" {% if banca.metodo == 'mediana' %}selected{% endif %}>Mediana</option>
+            <option value="media" {% if banca.metodo == 'media' %}selected{% endif %}>Média</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label for="banca-descricao" class="form-label">Descrição da banca</label>
+          <textarea class="form-control" id="banca-descricao" rows="3">{{ banca.descricao|default:'' }}</textarea>
+        </div>
+        <div class="mb-3">
+          <label for="banca-limiar" class="form-label">Limiar de desvio (revisor)</label>
+          <input type="number" class="form-control" id="banca-limiar" min="0" step="1" value="{{ banca.limiar_desvio|floatformat:'0' }}">
+          <div class="form-text">Desvio padrão máximo por competência antes de acionar o revisor</div>
+        </div>
+        <div class="mb-3">
+          <label for="banca-revisor" class="form-label">Corretor revisor (consenso)</label>
+          <select class="form-select" id="banca-revisor">
+            <option value="">--- Desabilitado ---</option>
+            {% for c in corretores_llm %}
+              <option value="{{ c.id }}" {% if banca.revisor_corretor_id == c.id %}selected{% endif %}>
+                {{ c.nome }} ({{ c.modelo }})
+              </option>
+            {% endfor %}
+          </select>
+          <div class="form-text">Quando houver divergência, este corretor atua como juiz do consenso</div>
+        </div>
+        <div class="mb-3">
+          <label for="banca-modo" class="form-label">Modo de avaliação</label>
+          <select class="form-select" id="banca-modo" onchange="toggleModoEspecialistas()">
+            <option value="pool" {% if banca.modo == 'pool' %}selected{% endif %}>Pool de agentes (membros da banca)</option>
+            <option value="especialistas" {% if banca.modo == 'especialistas' %}selected{% endif %}>Especialistas C1-C5 (5 agentes paralelos)</option>
+          </select>
+          <div class="form-text">
+            <strong>Pool:</strong> usa os corretores da banca com o método de consolidação configurado.<br>
+            <strong>Especialistas:</strong> cria 5 agentes virtuais (um por competência) que avaliam em paralelo.
+          </div>
+        </div>
+        <div id="especialistas-campos">
+          <div class="mb-3">
+            <label for="banca-provedor" class="form-label">Provedor padrão</label>
+            <select class="form-select" id="banca-provedor">
+              <option value="">--- Usar env var ---</option>
+              {% for p in provedores %}
+                <option value="{{ p.id }}" {% if banca.provedor_id == p.id %}selected{% endif %}>
+                  {{ p.nome }}{% if p.tipo == "gemini" %} (Gemini){% endif %}
+                </option>
+              {% endfor %}
+            </select>
+            <div class="form-text">API key e base URL deste provedor serão usadas no modo especialistas.</div>
+          </div>
+          <div class="mb-3">
+            <label for="banca-modelo-llm" class="form-label">Modelo LLM</label>
+            <input type="text" class="form-control" id="banca-modelo-llm"
+                   value="{{ banca.modelo_llm|default:'' }}"
+                   placeholder="Ex: gpt-4o, gemini-2.5-flash (opcional)">
+            <div class="form-text">Modelo para os agentes especialistas. Deixe vazio para usar LLM_MODEL do .env.</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-primary btn-sm">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+<div class="modal fade" id="modal-revisor" tabindex="-1">
+  <div class="modal-dialog">
+    <form class="modal-content" onsubmit="salvarRevisor(event)">
+      <div class="modal-header">
+        <h5 class="modal-title">⚙️ Configurar Revisor de Consenso</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label for="revisor-select" class="form-label">Corretor revisor</label>
+          <select class="form-select" id="revisor-select">
+            <option value="">--- Desabilitado ---</option>
+            {% for c in corretores_llm %}
+              <option value="{{ c.id }}" {% if banca.revisor_corretor_id == c.id %}selected{% endif %}>
+                {{ c.nome }} ({{ c.modelo }})
+              </option>
+            {% endfor %}
+          </select>
+          <div class="form-text">Agente LLM que atua como juiz quando há divergência entre corretores.</div>
+        </div>
+        <div class="mb-3">
+          <label for="revisor-limiar" class="form-label">Limiar de desvio</label>
+          <div class="input-group">
+            <input type="number" class="form-control" id="revisor-limiar" min="0" step="1"
+                   value="{{ banca.limiar_desvio|floatformat:'0' }}">
+            <span class="input-group-text">pontos</span>
+          </div>
+          <div class="form-text">Desvio padrão máximo por competência. Acima deste valor, o revisor é acionado.</div>
+        </div>
+        <div class="mb-3">
+          <label for="revisor-metodo" class="form-label">Método de consenso</label>
+          <select class="form-select" id="revisor-metodo">
+            <option value="mediana" {% if banca.metodo == 'mediana' %}selected{% endif %}>Mediana</option>
+            <option value="media" {% if banca.metodo == 'media' %}selected{% endif %}>Média</option>
+          </select>
+          <div class="form-text">Método usado para consolidar as notas dos corretores.</div>
+        </div>
+        <hr>
+        <p class="small text-muted mb-0">
+          <strong>Modo de atuação:</strong> quando o desvio padrão entre corretores exceder o limiar
+          em alguma competência, o revisor é acionado para avaliar novamente e gerar o consenso final.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-success btn-sm">Salvar configurações</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+  var bancaId = '{{ banca.id }}';
+  var hasMembros = {{ banca.corretores.count }} > 0;
+
+  function api(method, url, body) {
+    var opts = {
+      method: method,
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken()},
+      credentials: 'include',
+    };
+    if (body) opts.body = JSON.stringify(body);
+    return fetch(url, opts).then(function(r) {
+      if (!r.ok) {
+        return r.json().then(function(err) {
+          throw new Error(err.detail || err.erro || 'Erro ' + r.status);
+        }).catch(function() {
+          throw new Error('Erro ' + r.status);
+        });
+      }
+      var ct = r.headers.get('content-type') || '';
+      if (ct.includes('application/json')) return r.json();
+      return null;
+    });
+  }
+
+  window.toggleBanca = function(checked) {
+    var endpoint = checked
+      ? '/api/v1/admin/pools/' + bancaId + '/ativar'
+      : '/api/v1/admin/pools/' + bancaId + '/desativar';
+    var sw = document.getElementById('switch-banca');
+    if (sw) sw.disabled = true;
+    fetch(endpoint, {method: 'POST', headers: {'X-CSRFToken': getCSRFToken()}})
+      .then(function(r) {
+        if (!r.ok) { if (sw) { sw.checked = !checked; sw.disabled = false; } throw new Error('Erro'); }
+        mostrarToast(checked ? 'Banca ativada com sucesso.' : 'Banca desativada.');
+        setTimeout(function() { location.reload(); }, 800);
+      })
+      .catch(function(e) {
+        if (sw) { sw.checked = !checked; sw.disabled = false; }
+        mostrarToast(e.message, 'erro');
+      });
+  };
+
+  window.abrirModalBanca = function() {
+    var modo = '{{ banca.modo }}';
+    document.getElementById('banca-modo').value = modo || 'pool';
+    toggleModoEspecialistas();
+    var el = document.getElementById('modal-banca');
+    var modal = bootstrap.Modal.getInstance(el) || new bootstrap.Modal(el);
+    modal.show();
+  };
+
+  window.toggleModoEspecialistas = function() {
+    var modo = document.getElementById('banca-modo').value;
+    var campos = document.getElementById('especialistas-campos');
+    if (campos) {
+      campos.style.display = modo === 'especialistas' ? '' : 'none';
+    }
+  };
+
+  window.salvarBanca = function(e) {
+    e.preventDefault();
+    var modo = document.getElementById('banca-modo').value || 'pool';
+    var limiarVal = parseFloat(document.getElementById('banca-limiar').value);
+    var data = {
+      nome: document.getElementById('banca-nome').value,
+      metodo: document.getElementById('banca-metodo').value,
+      descricao: document.getElementById('banca-descricao').value,
+      limiar_desvio: isNaN(limiarVal) ? 20 : limiarVal,
+      revisor_corretor: document.getElementById('banca-revisor').value || null,
+      modo: modo,
+      provedor: document.getElementById('banca-provedor').value || null,
+      modelo_llm: document.getElementById('banca-modelo-llm').value || '',
+    };
+
+    var confirmar = function() { return Promise.resolve(); };
+    if (modo === 'especialistas' && hasMembros) {
+      confirmar = function() {
+        return new Promise(function(resolve, reject) {
+          var ok = confirm(
+            'Atenção: esta banca possui membros individuais.\n'
+            + 'No modo Especialistas, os avaliadores individuais não são utilizados.\n\n'
+            + 'Ao salvar, todos os membros serão removidos automaticamente.\n\n'
+            + 'Deseja continuar?'
+          );
+          if (ok) { hasMembros = false; resolve(); }
+          else reject(new Error('cancel'));
+        });
+      };
+    }
+
+    var btn = document.querySelector('#modal-banca button[type="submit"]');
+    confirmar().then(function() {
+      if (btn) btn.disabled = true;
+      return api('PUT', '/api/v1/admin/pools/' + bancaId, data);
+    }).then(function() {
+      var modal = bootstrap.Modal.getInstance(document.getElementById('modal-banca'));
+      modal.hide();
+      mostrarToast('Banca atualizada com sucesso.');
+      setTimeout(function() { location.reload(); }, 800);
+    }).catch(function(e) {
+      if (btn) btn.disabled = false;
+      if (e.message !== 'cancel') mostrarToast(e.message, 'erro');
+    });
+  };
+
+  window.abrirModalMembro = function() {
+    var el = document.getElementById('modal-membro');
+    var modal = bootstrap.Modal.getInstance(el) || new bootstrap.Modal(el);
+    modal.show();
+  };
+
+  window.atualizarSelectMembro = function() {
+    var tipo = document.getElementById('tipo-membro').value;
+    document.getElementById('select-humano').classList.toggle('d-none', tipo !== 'humano');
+    document.getElementById('select-llm').classList.toggle('d-none', tipo !== 'llm');
+  };
+
+  window.adicionarMembro = function(e) {
+    e.preventDefault();
+    var tipo = document.getElementById('tipo-membro').value;
+    var pesoVal = parseFloat(document.getElementById('membro-peso').value);
+    var data = {pool: bancaId, tipo: tipo, peso: isNaN(pesoVal) ? 1.0 : pesoVal, ordem: 99};
+    if (tipo === 'humano') {
+      data.usuario = document.getElementById('usuario-select').value;
+    } else {
+      data.corretor_llm = document.getElementById('corretor-select').value;
+    }
+    var btn = document.querySelector('#modal-membro button[type="submit"]');
+    if (btn) btn.disabled = true;
+    api('POST', '/api/v1/admin/pool-corretores', data)
+      .then(function() {
+        var modal = bootstrap.Modal.getInstance(document.getElementById('modal-membro'));
+        modal.hide();
+        mostrarToast('Membro adicionado com sucesso.');
+        setTimeout(function() { location.reload(); }, 800);
+      })
+      .catch(function(e) {
+        if (btn) btn.disabled = false;
+        mostrarToast(e.message, 'erro');
+      });
+  };
+
+  window.abrirModalRevisor = function() {
+    var el = document.getElementById('modal-revisor');
+    var modal = bootstrap.Modal.getInstance(el) || new bootstrap.Modal(el);
+    modal.show();
+  };
+
+  window.salvarRevisor = function(e) {
+    e.preventDefault();
+    var limiarVal = parseFloat(document.getElementById('revisor-limiar').value);
+    var data = {
+      nome: '{{ banca.nome|escapejs }}',
+      metodo: document.getElementById('revisor-metodo').value,
+      descricao: '{{ banca.descricao|default:""|escapejs }}',
+      limiar_desvio: isNaN(limiarVal) ? 20 : limiarVal,
+      revisor_corretor: document.getElementById('revisor-select').value || null,
+      modo: '{{ banca.modo }}',
+      provedor: '{{ banca.provedor_id|default:"" }}',
+      modelo_llm: '{{ banca.modelo_llm|default:""|escapejs }}',
+    };
+
+    var btn = document.querySelector('#modal-revisor button[type="submit"]');
+    if (btn) btn.disabled = true;
+    api('PUT', '/api/v1/admin/pools/' + bancaId, data)
+      .then(function() {
+        var modal = bootstrap.Modal.getInstance(document.getElementById('modal-revisor'));
+        modal.hide();
+        mostrarToast('Revisor configurado com sucesso.');
+        setTimeout(function() { location.reload(); }, 800);
+      })
+      .catch(function(e) {
+        if (btn) btn.disabled = false;
+        mostrarToast(e.message, 'erro');
+      });
+  };
+
+  window.removerMembro = async function(membroId, nome, btn) {
+    if (!confirm('Remover "' + nome + '" da banca?')) return;
+    try {
+      var resp = await fetch('/api/v1/admin/pool-corretores/' + membroId, {
+        method: 'DELETE',
+        headers: {'X-CSRFToken': getCSRFToken()}
+      });
+      if (!resp.ok) {
+        var err = await resp.json().catch(function() { return {}; });
+        throw new Error(err.detalhe || err.erro || 'Erro ' + resp.status);
+      }
+      mostrarToast('"' + nome + '" removido da banca.');
+      btn.closest('tr').remove();
+      hasMembros = (document.querySelectorAll('#modal-membro tbody tr').length > 1);
+    } catch(e) {
+      mostrarToast(e.message, 'erro');
+    }
+  };
+})();
+</script>
+{% endblock %}

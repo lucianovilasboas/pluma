@@ -1,0 +1,580 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Pluma</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+      :root {
+        --bs-primary: #14b8a6;
+        --bs-primary-rgb: 20, 184, 166;
+        --bs-link-color: #14b8a6;
+        --bs-link-hover-color: #0d9488;
+        --bs-body-font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        --bs-btn-font-family: 'Inter', sans-serif;
+        --bs-card-border-radius: 0.75rem;
+        --bs-card-cap-bg: transparent;
+      }
+
+      body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        background: #f1f5f9;
+      }
+
+      .navbar-essay {
+        background-color: #0f172a !important;
+      }
+      .navbar-essay .navbar-brand {
+        color: #14b8a6;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+      }
+      .navbar-essay .navbar-brand:hover {
+        color: #0d9488;
+      }
+      .pluma-logo {
+        flex-shrink: 0;
+      }
+      .navbar-essay .nav-link {
+        color: rgba(255, 255, 255, 0.75) !important;
+        font-weight: 500;
+        font-size: 0.9rem;
+        padding: 0.4rem 0.75rem;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+      }
+      .navbar-essay .nav-link:hover,
+      .navbar-essay .nav-link.active {
+        color: #fff !important;
+        background: rgba(255, 255, 255, 0.08);
+      }
+      .navbar-essay .navbar-text {
+        color: rgba(255, 255, 255, 0.55);
+      }
+
+      .brand-highlight {
+        color: #14b8a6;
+      }
+
+      .card {
+        border: none;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+        transition: box-shadow 0.2s ease;
+      }
+      .card:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      }
+
+      .table > :not(caption) > * > * {
+        border-bottom-color: #e2e8f0;
+      }
+
+      a {
+        transition: color 0.2s ease;
+      }
+
+      .btn {
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.2s ease;
+      }
+      .btn:hover {
+        transform: translateY(-1px);
+      }
+      .btn-primary {
+        --bs-btn-bg: #14b8a6;
+        --bs-btn-border-color: #14b8a6;
+        --bs-btn-hover-bg: #0d9488;
+        --bs-btn-hover-border-color: #0d9488;
+        --bs-btn-active-bg: #0f766c;
+        --bs-btn-active-border-color: #0f766c;
+      }
+      .btn-outline-primary {
+        --bs-btn-color: #14b8a6;
+        --bs-btn-border-color: #14b8a6;
+        --bs-btn-hover-bg: #14b8a6;
+        --bs-btn-hover-border-color: #14b8a6;
+        --bs-btn-active-bg: #0d9488;
+        --bs-btn-active-border-color: #0d9488;
+      }
+
+      .badge.text-bg-primary {
+        background-color: #14b8a6 !important;
+      }
+
+      .border-bottom {
+        border-color: #e2e8f0 !important;
+      }
+
+      .anotacao-ortografia, .anotacao-concordancia, .anotacao-pontuacao,
+      .anotacao-coesao, .anotacao-vocabulario, .anotacao-argumentacao,
+      .anotacao-clareza, .anotacao-outro {
+        border-radius: 2px; cursor: help; position: relative; display: inline;
+      }
+
+      .anotacao-ia {
+        text-decoration: underline wavy rgba(0,0,0,0.25);
+        text-underline-offset: 3px;
+      }
+
+      .ann-filtered-out,
+      .ann-filtered-out:hover {
+        background: transparent !important;
+        box-shadow: none !important;
+        border: none !important;
+        text-decoration: underline !important;
+        text-decoration-color: transparent !important;
+      }
+
+      .anotacao-item { border-left:3px solid #14b8a6; padding-left:8px; }
+
+      /* ── Tooltip de anotações ── */
+      .annotation-tooltip {
+        position: fixed; z-index: 9999; pointer-events: none;
+        background: #1e293b; color: #f1f5f9; border-radius: 8px;
+        padding: 8px 10px; font-size: 0.8rem; line-height: 1.4;
+        max-width: 320px; box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        opacity: 0; transition: opacity 0.15s ease;
+      }
+      .annotation-tooltip.visible { opacity: 1; }
+      .annotation-tooltip .tt-item {
+        display: flex; align-items: center; gap: 6px;
+        padding: 2px 0;
+      }
+      .annotation-tooltip .tt-dot {
+        width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+      }
+
+      /* ── Paleta flutuante de tipos de erro ── */
+      #annotation-palette {
+        position: fixed; z-index: 9998;
+        background: #fff; border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+        padding: 8px; display: none;
+        align-items: center; gap: 4px;
+      }
+      #annotation-palette .palette-dot {
+        width: 26px; height: 26px; border-radius: 50%; border: 2px solid transparent;
+        cursor: pointer; transition: all 0.15s ease;
+        display: inline-flex; align-items: center; justify-content: center;
+        font-size: 0; position: relative;
+      }
+      #annotation-palette .palette-dot:hover {
+        transform: scale(1.2); border-color: #1e293b;
+      }
+      #annotation-palette .palette-dot.active {
+        border-color: #1e293b; box-shadow: 0 0 0 2px #fff, 0 0 0 4px currentColor;
+      }
+      #annotation-palette .palette-dot .dot-tooltip {
+        display: none;
+        position: absolute; top: -28px; left: 50%; transform: translateX(-50%);
+        background: #1e293b; color: #f1f5f9; font-size: 0.65rem;
+        white-space: nowrap; padding: 2px 6px; border-radius: 4px;
+        pointer-events: none;
+      }
+      #annotation-palette .palette-dot:hover .dot-tooltip {
+        display: block;
+      }
+      #annotation-palette .palette-count {
+        font-size: 0.6rem; font-weight: 700; color: #1e293b;
+        background: #e2e8f0; border-radius: 8px; padding: 0 4px;
+        margin-left: 2px; min-width: 14px; text-align: center;
+      }
+      #annotation-palette .palette-done {
+        width: 26px; height: 26px; border-radius: 50%; border: none;
+        background: #14b8a6; color: #fff; font-size: 0.9rem;
+        cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+        transition: transform 0.15s ease;
+      }
+      #annotation-palette .palette-done:hover { transform: scale(1.15); }
+      #annotation-palette .palette-divider {
+        width: 1px; height: 20px; background: #e2e8f0; margin: 0 2px;
+      }
+      #annotation-palette .palette-dot.selected {
+        border-color: #1e293b; box-shadow: 0 0 0 3px #fff, 0 0 0 5px currentColor; transform: scale(1.15);
+      }
+      #annotation-palette .palette-input-area {
+        display: none; align-items: center; gap: 4px; padding: 4px 0 0; width: 100%;
+      }
+      #annotation-palette .palette-input-area.visible { display: flex; }
+      #annotation-palette .palette-input {
+        flex: 1; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 8px;
+        font-size: 0.8rem; outline: none; min-width: 140px;
+      }
+      #annotation-palette .palette-input:focus { border-color: #64748b; }
+      #annotation-palette .palette-btn-save {
+        border: none; background: #14b8a6; color: #fff; border-radius: 6px; padding: 4px 10px;
+        font-size: 0.78rem; cursor: pointer; white-space: nowrap;
+      }
+      #annotation-palette .palette-btn-save:hover { background: #0d9488; }
+      #annotation-palette .palette-btn-cancel {
+        border: 1px solid #cbd5e1; background: #fff; color: #475569; border-radius: 6px; padding: 4px 8px;
+        font-size: 0.78rem; cursor: pointer; white-space: nowrap;
+      }
+      #annotation-palette .palette-btn-cancel:hover { background: #f1f5f9; }
+
+      [id$="-chart"] {
+        min-height: 320px;
+      }
+
+      .table td {
+        word-break: break-word;
+      }
+
+      /* ── Folha pautada com numeração ── */
+      .paper-textarea-wrapper {
+        position: relative;
+        display: flex;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        background:
+          repeating-linear-gradient(
+            transparent 0px,
+            transparent 28px,
+            #e5e7eb 28px,
+            #e5e7eb 29px
+          );
+        overflow: hidden;
+      }
+      .paper-textarea-wrapper:focus-within {
+        box-shadow: 0 0 0 2px rgba(20, 184, 166, 0.25);
+        border-color: #14b8a6;
+      }
+      .line-numbers {
+        width: 34px;
+        padding: 8px 4px;
+        text-align: right;
+        color: #9ca3af;
+        font-size: 0.8rem;
+        line-height: 29px;
+        font-family: 'Courier New', monospace;
+        user-select: none;
+        flex-shrink: 0;
+        background: #f9fafb;
+        border-right: 1px solid #e5e7eb;
+        overflow: hidden;
+      }
+      .paper-textarea-wrapper textarea {
+        flex: 1;
+        border: none;
+        outline: none;
+        resize: vertical;
+        min-height: 420px;
+        padding: 8px 12px;
+        font-size: 0.95rem;
+        line-height: 29px;
+        font-family: 'Courier New', monospace;
+        background: transparent;
+      }
+      .paper-textarea-wrapper textarea:focus {
+        box-shadow: none;
+      }
+
+      .table-actions {
+        width: 1%;
+        white-space: nowrap;
+      }
+      .table thead th {
+        font-weight: 600;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #64748b;
+        border-bottom: 2px solid #e2e8f0;
+        padding: 0.75rem;
+      }
+      .table td {
+        padding: 0.75rem;
+        vertical-align: middle;
+      }
+      .table .btn {
+        min-width: 80px;
+      }
+
+      .card-header h5 {
+        font-weight: 600;
+      }
+
+      @media (max-width: 375px) {
+        .btn-sm { font-size: 0.8rem; padding: 0.25rem 0.5rem; }
+        .table { font-size: 0.85rem; }
+        h2.h4 { font-size: 1.1rem; }
+      }
+
+      /* ── Breadcrumbs elegantes ── */
+      .breadcrumb {
+        background: transparent;
+        padding: 0;
+        font-size: 0.8rem;
+      }
+      .breadcrumb-item + .breadcrumb-item::before {
+        content: "›";
+        font-size: 1.1rem;
+        font-weight: 300;
+        color: #94a3b8;
+        padding: 0 0.4rem;
+      }
+      .breadcrumb-item a {
+        color: #64748b;
+        text-decoration: none;
+        transition: color 0.15s ease;
+      }
+      .breadcrumb-item a:hover {
+        color: #14b8a6;
+      }
+      .breadcrumb-item.active {
+        color: #0f172a;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-essay">
+      <div class="container-fluid">
+        <a class="navbar-brand" href="/">
+          <svg class="pluma-logo" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
+            <path d="M12 2 C18 2 22 6 22 12 C22 18 18 21 12 22 C6 21 2 18 2 12 C2 6 6 2 12 2Z" fill="#14b8a6" fill-opacity="0.08"/>
+            <path d="M12 2 L12 20" stroke="#14b8a6" stroke-width="1" stroke-linecap="round"/>
+            <path d="M12 5 L7 4.5 M12 8 L4 8 M12 11 L3 12 M12 14 L4 16 M12 17 L7 18.5" stroke="#14b8a6" stroke-width="0.5" opacity="0.35" stroke-linecap="round"/>
+            <path d="M12 5 L17 4.5 M12 8 L20 8 M12 11 L21 12 M12 14 L20 16 M12 17 L17 18.5" stroke="#14b8a6" stroke-width="0.5" opacity="0.35" stroke-linecap="round"/>
+            <path d="M12 20 L12 21" stroke="#14b8a6" stroke-width="0.7" opacity="0.4" stroke-linecap="round"/>
+            <path d="M11.2 21 L12 23 L12.8 21" stroke="#14b8a6" stroke-width="0.6" opacity="0.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          </svg>
+          Pluma
+        </a>
+        <button class="navbar-toggler border-0 p-2" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Alternar navegação">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="white" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M2.5 12a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5z"/></svg>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+          <div class="d-flex flex-column flex-lg-row align-items-lg-center gap-1 ms-auto w-100">
+            {% if request.user.is_authenticated %}
+              <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                {% if request.user.user_type == 'aluno' %}
+                  <li class="nav-item">
+                    <a class="nav-link" href="/dashboard/submeter">
+                      Redigir redação
+                      <span class="badge bg-info text-dark ms-1 d-none" data-nav-badge="em_avaliacao_count"></span>
+                    </a>
+                  </li>
+                  <li class="nav-item">
+                    <a class="nav-link" href="/dashboard/minhas-redacoes">
+                      Minhas Redações
+                      <span class="badge bg-success ms-1 d-none" data-nav-badge="corrigidas_count"></span>
+                    </a>
+                  </li>
+                  <li class="nav-item">
+                    <span class="nav-link disabled text-secondary" style="pointer-events:none;">
+                      Seleção de corretores (em breve)
+                    </span>
+                  </li>
+                {% else %}
+                  <li class="nav-item">
+                    <a class="nav-link" href="/dashboard/minhas-correcoes">
+                      Minhas Correções
+                    </a>
+                  </li>
+                  <li class="nav-item">
+                    <a class="nav-link" href="/dashboard/corrigir">
+                      Corrigir
+                      <span class="badge bg-danger ms-1 d-none" data-nav-badge="pendentes_count"></span>
+                      <span class="badge bg-warning text-dark ms-1 d-none" data-nav-badge="rascunhos_count"></span>
+                    </a>
+                  </li>
+                {% endif %}
+                {% if request.user.user_type == 'admin' or request.user.user_type == 'professor' %}
+                  <li class="nav-item"><a class="nav-link" href="/dashboard/turma">Turma</a></li>
+                  <li class="nav-item"><a class="nav-link" href="{% url 'admin-temas' %}">Temas</a></li>
+                {% endif %}
+                {% if request.user.user_type != 'aluno' %}
+                  <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                      Relatórios
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-dark">
+                      <li><a class="dropdown-item" href="/dashboard/relatorios">Alunos</a></li>
+                      <li><a class="dropdown-item" href="/dashboard/relatorios/corretores">Corretores</a></li>
+                    </ul>
+                  </li>
+                  <li class="nav-item"><a class="nav-link" href="/dashboard/estatisticas">Estatísticas</a></li>
+                {% endif %}
+                {% if request.user.user_type == 'admin' %}
+                  <li class="nav-item">
+                    <a class="nav-link" href="/dashboard/bancas">
+                      Bancas
+                      <span class="badge bg-danger ms-1 d-none" data-nav-badge="usuarios_sem_banca"></span>
+                    </a>
+                  </li>
+                  <li class="nav-item"><a class="nav-link" href="/dashboard/agentes">Agentes</a></li>
+                  <li class="nav-item"><a class="nav-link" href="/dashboard/fila">Fila</a></li>
+                  <li class="nav-item"><a class="nav-link" href="/dashboard/debug">Debug</a></li>
+                  <li class="nav-item"><a class="nav-link" href="/dashboard/configuracoes">Configurações</a></li>
+                {% endif %}
+              </ul>
+              <div class="d-flex align-items-center gap-2 flex-wrap">
+                <span class="navbar-text small">{{ request.user.nome_exibicao }} ({{ request.user.user_type }})</span>
+                <a href="/dashboard/notificacoes" class="text-decoration-none badge bg-danger rounded-pill d-none ms-1" data-nav-badge="notificacoes_nao_lidas" title="Notificações">0</a>
+                <a class="btn btn-outline-light btn-sm flex-shrink-0" href="/logout">Sair</a>
+              </div>
+            {% else %}
+              <div class="d-flex align-items-center gap-2 ms-auto">
+                <a class="btn btn-outline-light btn-sm" href="/login">Entrar</a>
+                <a class="btn btn-primary btn-sm" href="/register">Criar conta</a>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </nav>
+    <main class="container py-4">
+      {% if messages %}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  {% for message in messages %}
+    mostrarToast("{{ message|escapejs }}", "{{ message.tags|default:'info' }}");
+  {% endfor %}
+});
+</script>
+      {% endif %}
+
+      {% block banner_cta_aluno %}
+      {% if request.user.is_authenticated and request.user.user_type == 'aluno' %}
+      <div class="card border-0 shadow-sm mb-4"
+           style="background:linear-gradient(135deg,var(--bs-primary,#14b8a6),#0d9488);">
+        <div class="card-body d-flex align-items-center justify-content-between py-3 gap-3">
+          <div class="text-white">
+            <h5 class="mb-0 fw-semibold">📝 Pratique sua escrita!</h5>
+            <p class="mb-0 opacity-75 small">Quanto mais você treina, melhor fica sua redação.</p>
+          </div>
+          <a href="{% url 'dashboard-submeter' %}"
+             class="btn btn-light btn-lg fw-semibold px-4 flex-shrink-0">
+            ✍️ Escrever redação
+          </a>
+        </div>
+      </div>
+      {% endif %}
+      {% endblock %}
+
+      {% block breadcrumb %}{% endblock %}
+      {% block content %}{% endblock %}
+    </main>
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 9999">
+      <div id="toast-feedback" class="toast" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="3000">
+        <div class="toast-header">
+          <strong class="me-auto">Pluma</strong>
+          <small id="toast-timestamp" class="text-muted"></small>
+          <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Fechar"></button>
+        </div>
+        <div id="toast-body" class="toast-body"></div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-3.0.1.min.js"></script>
+    <script>
+    function getCSRFToken() {
+      var cookies = document.cookie.split(';');
+      for (var i = 0; i < cookies.length; i++) {
+        var c = cookies[i].trim();
+        if (c.startsWith('csrftoken=')) return c.substring(10);
+      }
+      return '';
+    }
+
+    function mostrarToast(mensagem, tipo) {
+      var toastEl = document.getElementById('toast-feedback');
+      var body = document.getElementById('toast-body');
+      var ts = document.getElementById('toast-timestamp');
+      body.textContent = mensagem;
+      ts.textContent = new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+      toastEl.className = 'toast';
+      if (tipo === 'erro' || tipo === 'error') {
+        toastEl.classList.add('text-bg-danger');
+      } else if (tipo === 'warning') {
+        toastEl.classList.add('text-bg-warning', 'text-dark');
+      } else if (tipo === 'info') {
+        toastEl.classList.add('text-bg-info', 'text-dark');
+      } else {
+        toastEl.classList.add('text-bg-success');
+      }
+      var toast = bootstrap.Toast.getOrCreateInstance(toastEl);
+      toast.show();
+    }
+
+    async function excluirItem(url, nome, token) {
+      if (!confirm('Excluir "' + nome + '" permanentemente?')) return false;
+      try {
+        var resp = await fetch(url, {
+          method: 'DELETE',
+          headers: {'X-CSRFToken': token}
+        });
+        if (!resp.ok) {
+          var errBody = await resp.json().catch(function() { return {}; });
+          throw new Error(errBody.detalhe || errBody.erro || 'Erro ' + resp.status);
+        }
+        mostrarToast('"' + nome + '" excluído com sucesso.');
+        return true;
+      } catch(e) {
+        mostrarToast(e.message, 'erro');
+        return false;
+      }
+    }
+    </script>
+    {% if request.user.is_authenticated %}
+      <script>
+        function atualizarBadges() {
+          fetch("/dashboard/api/nav-counts", {
+            headers: { "X-Requested-With": "XMLHttpRequest" },
+          })
+            .then(function (response) {
+              if (!response.ok) {
+                throw new Error("Falha ao carregar contadores do menu");
+              }
+              return response.json();
+            })
+            .then(function (counts) {
+              var simpleBadges = [
+                "em_avaliacao_count",
+                "corrigidas_count",
+                "pendentes_count",
+                "usuarios_sem_banca",
+                "notificacoes_nao_lidas",
+              ];
+
+              simpleBadges.forEach(function (key) {
+                var value = counts[key] || 0;
+                var element = document.querySelector('[data-nav-badge="' + key + '"]');
+                if (!element || !value) {
+                  return;
+                }
+                element.textContent = value;
+                element.classList.remove("d-none");
+              });
+
+              var rascunhos = counts.rascunhos_count || 0;
+              var rascunhoBadge = document.querySelector('[data-nav-badge="rascunhos_count"]');
+              if (rascunhoBadge && rascunhos) {
+                rascunhoBadge.textContent =
+                  rascunhos + " rascunho" + (rascunhos > 1 ? "s" : "");
+                rascunhoBadge.classList.remove("d-none");
+              }
+            })
+            .catch(function () {
+            });
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+          atualizarBadges();
+          setInterval(atualizarBadges, 30000);
+        });
+      </script>
+    {% endif %}
+    {% block extra_js %}{% endblock %}
+  </body>
+</html>

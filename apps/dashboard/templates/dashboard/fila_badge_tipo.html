@@ -1,0 +1,9 @@
+{% if tipo == "avaliacao" %}
+  <span class="badge bg-secondary">Avaliação</span>
+{% elif tipo == "consolidacao" %}
+  <span class="badge bg-primary">Consolidação</span>
+{% elif tipo == "email" %}
+  <span class="badge bg-info text-dark">Email</span>
+{% else %}
+  <span class="badge bg-light text-dark">{{ tipo }}</span>
+{% endif %}

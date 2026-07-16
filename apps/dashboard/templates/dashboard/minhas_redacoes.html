@@ -1,0 +1,260 @@
+{% extends "dashboard/base.html" %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Home</a></li>
+    <li class="breadcrumb-item active">Minhas Redações</li>
+  </ol>
+</nav>
+<h1 class="h3 mb-1">Bem-vindo, {{ request.user.nome_exibicao }}</h1>
+<div class="d-flex align-items-center gap-2 mb-4">
+  <span class="badge bg-primary-subtle text-primary-emphasis rounded-pill fs-6 fw-normal px-3 py-1">
+    {{ total_redacoes }} reda{{ total_redacoes|pluralize:"ção,ções" }}
+  </span>
+</div>
+
+{% if pizza_erros_json or stacked_bar_json %}
+<div class="row g-3 mb-4">
+  {% if pizza_erros_json %}
+  <div class="col-12 col-md-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white">
+        <h5 class="mb-0">Seus erros mais frequentes</h5>
+      </div>
+      <div class="card-body">
+        <div id="pizza-erros-chart"></div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  {% if stacked_bar_json %}
+  <div class="col-12 col-md-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white">
+        <h5 class="mb-0">Evolução dos erros</h5>
+      </div>
+      <div class="card-body">
+        <div id="stacked-bar-chart"></div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if radar_json or timeline_json %}
+<div class="row g-3 mb-4">
+  {% if radar_json %}
+  <div class="col-12 col-md-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <div id="radar-chart"></div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  {% if timeline_json %}
+  <div class="col-12 col-md-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white d-flex justify-content-end align-items-center py-2">
+        <form method="get" class="d-flex align-items-center gap-2">
+          <label class="form-label mb-0 small text-muted">Agrupar:</label>
+          <select name="agregacao" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
+            <option value="dia" {% if agregacao == "dia" %}selected{% endif %}>Por dia</option>
+            <option value="hora" {% if agregacao == "hora" %}selected{% endif %}>Por hora</option>
+          </select>
+        </form>
+      </div>
+      <div class="card-body">
+        <div id="timeline-chart"></div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="row g-3">
+  {% for redacao in redacoes %}
+    <div class="col-12 col-sm-6 col-xl-4">
+      <div class="card border-0 shadow-sm h-100 redacao-card" data-status="{{ redacao.status }}">
+        <div class="card-body d-flex flex-column p-3">
+          <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+            <h6 class="card-title mb-0 fw-semibold text-truncate flex-grow-1" title="{{ redacao.tema|default:'Redação' }}">
+              {{ redacao.tema|default:"Redação" }}
+            </h6>
+            <span class="flex-shrink-0">
+              {% if redacao.status == "corrigida" %}
+                <span class="badge text-bg-success rounded-pill px-2 py-1">Corrigida</span>
+              {% elif redacao.status == "em_avaliacao" %}
+                {% with cons=redacao.consolidacoes.first %}
+                {% if cons and cons.status == "parcial" %}
+                  <span class="badge text-bg-info rounded-pill px-2 py-1">Parcial ({{ cons.quantidade_corretores }}/{{ cons.quantidade_esperada }})</span>
+                {% else %}
+                  <span class="badge text-bg-warning rounded-pill px-2 py-1">
+                    <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                    Avaliando
+                  </span>
+                {% endif %}
+                {% endwith %}
+              {% elif redacao.status == "erro" %}
+                <span class="badge text-bg-danger rounded-pill px-2 py-1">Erro</span>
+              {% else %}
+                <span class="badge text-bg-secondary rounded-pill px-2 py-1">Pendente</span>
+              {% endif %}
+            </span>
+          </div>
+
+          <p class="text-muted small mb-3">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" class="me-1" viewBox="0 0 16 16"><path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM2 2a1 1 0 0 0-1 1v1h14V3a1 1 0 0 0-1-1H2zm13 3H1v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V5z"/></svg>
+            {{ redacao.criada_em|date:"d/m/Y H:i" }}
+            {% if redacao.avaliacoes.count %}
+              <span class="ms-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16"><path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/><path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/></svg>
+                {{ redacao.avaliacoes.count }} aval{{ redacao.avaliacoes.count|pluralize:"iação,iações" }}
+              </span>
+            {% endif %}
+          </p>
+
+          <div class="mt-auto pt-3 border-top d-flex justify-content-between align-items-center">
+            <div>
+              {% with cons=redacao.consolidacoes.first %}
+                {% if cons and redacao.status == "corrigida" %}
+                  <span class="badge text-bg-success px-3 py-1 fs-6 fw-bold">{{ cons.nota_total }}</span>
+                {% elif redacao.status == "corrigida" %}
+                  {% with av=redacao.avaliacoes.first %}
+                    {% if av %}
+                      <span class="badge text-bg-success px-3 py-1 fs-6 fw-bold">{{ av.nota_total }}</span>
+                    {% else %}
+                      <span class="text-muted small">—</span>
+                    {% endif %}
+                  {% endwith %}
+                {% elif cons and cons.status == "parcial" %}
+                  <span class="badge text-bg-info px-3 py-1 fs-6 fw-bold">{{ cons.nota_total }}</span>
+                {% elif redacao.status == "em_avaliacao" %}
+                  <span class="text-muted small">Aguardando correção</span>
+                {% elif redacao.status == "erro" %}
+                  <span class="text-danger small fw-medium">Falha na avaliação</span>
+                {% else %}
+                  <span class="text-muted small">Aguardando</span>
+                {% endif %}
+              {% endwith %}
+            </div>
+            <div class="d-flex gap-1">
+              {% if redacao.status == "corrigida" %}
+                <a href="{% url 'dashboard-detalhe-redacao' redacao.id %}" class="btn btn-sm btn-outline-primary px-3">Detalhes</a>
+              {% elif redacao.status == "em_avaliacao" and redacao.id in redacoes_com_parciais %}
+                <a href="{% url 'dashboard-detalhe-redacao' redacao.id %}" class="btn btn-sm btn-outline-info px-3">Ver correção parcial</a>
+              {% elif redacao.status == "erro" %}
+                <form method="post" action="{% url 'dashboard-resubmeter' redacao.id %}" class="d-inline">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-sm btn-outline-primary px-3">Resubmeter</button>
+                </form>
+              {% endif %}
+              <button class="btn btn-sm btn-outline-danger px-2"
+                      onclick="removerRedacao('{{ redacao.id }}', '{{ redacao.tema|escapejs }}', this)"
+                      title="Remover redação">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  {% empty %}
+    <div class="col-12">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body text-center text-muted py-5">
+          <p class="mb-2 fs-5">Nenhuma redação enviada ainda.</p>
+          <a href="{% url 'dashboard-submeter' %}" class="btn btn-primary btn-sm">Redigir primeira redação</a>
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    {% if pizza_erros_json %}
+    var pizzaErros = {{ pizza_erros_json|safe }};
+    Plotly.newPlot("pizza-erros-chart", pizzaErros.data, pizzaErros.layout, {responsive: true});
+    {% endif %}
+    {% if stacked_bar_json %}
+    var stacked = {{ stacked_bar_json|safe }};
+    Plotly.newPlot("stacked-bar-chart", stacked.data, stacked.layout, {responsive: true});
+    {% endif %}
+    {% if radar_json %}
+    var radar = {{ radar_json|safe }};
+    Plotly.newPlot("radar-chart", radar.data, radar.layout, {responsive: true});
+    {% endif %}
+    {% if timeline_json %}
+    var timeline = {{ timeline_json|safe }};
+    Plotly.newPlot("timeline-chart", timeline.data, timeline.layout, {responsive: true});
+    {% endif %}
+
+    var cards = document.querySelectorAll(".redacao-card[data-status='em_avaliacao']");
+    if (cards.length > 0) {
+      var pollCount = 0;
+      var pollTimer = setInterval(function() {
+        pollCount++;
+        fetch(window.location.href, {headers: {"X-Requested-With": "XMLHttpRequest"}})
+          .then(function(r) { return r.text(); })
+          .then(function(html) {
+            var parser = new DOMParser();
+            var doc = parser.parseFromString(html, "text/html");
+            var newCards = doc.querySelectorAll(".redacao-card[data-status='em_avaliacao']");
+            if (newCards.length === 0) {
+              clearInterval(pollTimer);
+              if (typeof BannerCorrigida !== 'undefined') {
+                BannerCorrigida.mostrar();
+              } else {
+                location.reload();
+              }
+            }
+          })
+          .catch(function() {});
+        if (pollCount > 60) {
+          clearInterval(pollTimer);
+        }
+      }, 3000);
+    }
+  });
+
+  window.removerRedacao = async function(id, tema, btn) {
+    if (!confirm('Remover esta redação sobre "' + tema + '"?')) return;
+    try {
+      var resp = await fetch('/api/v1/redacoes/' + id + '/remover', {
+        method: 'POST',
+        headers: {'X-CSRFToken': getCSRFToken(), 'Content-Type': 'application/json'}
+      });
+      if (!resp.ok) {
+        var err = await resp.json().catch(function() { return {}; });
+        throw new Error(err.erro || 'Erro ' + resp.status);
+      }
+      mostrarToast('Redação removida com sucesso.');
+      btn.closest('.col-12').remove();
+    } catch(e) {
+      mostrarToast(e.message, 'erro');
+    }
+  };
+</script>
+{% endblock %}
+{% load static %}
+
+{% block extra_js %}
+<style>
+@keyframes bannerSlideDown {
+  from { opacity: 0; transform: translateY(-20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes bannerPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(25, 135, 84, 0.4); }
+  50%      { box-shadow: 0 0 20px 8px rgba(25, 135, 84, 0.15); }
+}
+</style>
+<script src="{% static 'dashboard/js/banner-corrigida.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', BannerCorrigida.init);
+</script>
+{% endblock %}

@@ -1,0 +1,246 @@
+{% extends "dashboard/base.html" %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Home</a></li>
+    <li class="breadcrumb-item active">Estatísticas</li>
+  </ol>
+</nav>
+{% if modo == "corretor" %}
+
+<h2 class="h4 mb-3">Minhas Estatísticas</h2>
+
+<div class="row g-3 mb-4">
+  <div class="col-12 col-md-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body text-center py-4">
+        <div class="text-muted small">Correções feitas</div>
+        <div class="display-5 fw-bold text-primary">{{ total_correcoes }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-md-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body text-center py-4">
+        <div class="text-muted small">Anotações feitas</div>
+        <div class="display-5 fw-bold text-primary">{{ total_anotacoes }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if pizza_erros_json %}
+<div class="row g-3 mb-4">
+  <div class="col-12 col-md-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <div id="pizza-erros-chart"></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if ultimas_anotacoes %}
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white">
+    <h5 class="mb-0">Últimas anotações</h5>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0 align-middle small">
+        <thead>
+          <tr>
+            <th>Trecho</th>
+            <th>Tipo</th>
+            <th>Redação</th>
+            <th>Data</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in ultimas_anotacoes %}
+          <tr>
+            <td class="text-muted">"{{ a.trecho_texto|truncatechars:40 }}"</td>
+            <td><span class="badge rounded-pill small bg-info-subtle text-info-emphasis">{{ a.get_tipo_erro_display }}</span></td>
+            <td><a href="{% url 'dashboard-detalhe-redacao' a.avaliacao.redacao.id %}" class="text-decoration-none">{{ a.avaliacao.redacao.tema|truncatechars:30 }}</a></td>
+            <td class="text-muted">{{ a.criada_em|date:"d/m/Y" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% else %}
+
+<h2 class="h4 mb-3">Dashboard</h2>
+
+<div class="row g-3 mb-4">
+  <div class="col-12 col-md-4">
+    <div class="card border-0 shadow-sm"><div class="card-body"><div class="text-muted">Redações</div><div class="h3">{{ total_redacoes }}</div></div></div>
+  </div>
+  <div class="col-12 col-md-4">
+    <div class="card border-0 shadow-sm"><div class="card-body"><div class="text-muted">Avaliações</div><div class="h3">{{ total_avaliacoes }}</div></div></div>
+  </div>
+  <div class="col-12 col-md-4">
+    <div class="card border-0 shadow-sm"><div class="card-body"><div class="text-muted">Média Total</div><div class="h3">{{ media_total }}</div></div></div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-12 col-md-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <div id="radar-chart"></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-md-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <div id="histograma-chart"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if pizza_json %}
+<div class="row g-3 mb-4">
+  <div class="col-12 col-md-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <div id="pizza-chart"></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if pizza_erros_turma_json or stacked_bar_json or scatter_json %}
+<hr class="my-4">
+<h4 class="h5 mb-3">Análise de Erros</h4>
+
+<div class="row g-3 mb-4">
+  {% if pizza_erros_turma_json %}
+  <div class="col-12 col-md-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <div id="pizza-erros-turma-chart"></div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  {% if stacked_bar_json %}
+  <div class="col-12 col-md-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <div id="stacked-bar-chart"></div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{% if scatter_json %}
+<div class="row g-3 mb-4">
+  <div class="col-12 col-md-8">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <div id="scatter-chart"></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if pivot_erros %}
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white">
+    <h5 class="mb-0">Alunos × Tipos de Erro</h5>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0 align-middle small">
+        <thead>
+          <tr>
+            <th>Aluno</th>
+            <th class="text-center">Ortografia</th>
+            <th class="text-center">Concordância</th>
+            <th class="text-center">Pontuação</th>
+            <th class="text-center">Coesão</th>
+            <th class="text-center">Vocabulário</th>
+            <th class="text-center">Argumentação</th>
+            <th class="text-center">Clareza</th>
+            <th class="text-center">Outro</th>
+            <th class="text-center fw-bold">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in pivot_erros %}
+          <tr>
+            <td>{{ row.aluno }}</td>
+            <td class="text-center">{{ row.Ortografia|default:"—" }}</td>
+            <td class="text-center">{{ row.Concordância|default:"—" }}</td>
+            <td class="text-center">{{ row.Pontuação|default:"—" }}</td>
+            <td class="text-center">{{ row.Coesão|default:"—" }}</td>
+            <td class="text-center">{{ row.Vocabulário|default:"—" }}</td>
+            <td class="text-center">{{ row.Argumentação|default:"—" }}</td>
+            <td class="text-center">{{ row.Clareza|default:"—" }}</td>
+            <td class="text-center">{{ row.Outro|default:"—" }}</td>
+            <td class="text-center fw-bold">{{ row.total }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="10" class="text-center text-muted py-3">Nenhum dado de erro disponível.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endif %}
+
+{% endif %}
+
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    {% if radar_json %}
+    var radar = {{ radar_json|safe }};
+    Plotly.newPlot("radar-chart", radar.data, radar.layout, {responsive: true});
+    {% endif %}
+
+    {% if histograma_json %}
+    var hist = {{ histograma_json|safe }};
+    Plotly.newPlot("histograma-chart", hist.data, hist.layout, {responsive: true});
+    {% endif %}
+
+    {% if pizza_json %}
+    var pizza = {{ pizza_json|safe }};
+    Plotly.newPlot("pizza-chart", pizza.data, pizza.layout, {responsive: true});
+    {% endif %}
+
+    {% if pizza_erros_json %}
+    var pizzaErros = {{ pizza_erros_json|safe }};
+    Plotly.newPlot("pizza-erros-chart", pizzaErros.data, pizzaErros.layout, {responsive: true});
+    {% endif %}
+
+    {% if pizza_erros_turma_json %}
+    var pizzaTurma = {{ pizza_erros_turma_json|safe }};
+    Plotly.newPlot("pizza-erros-turma-chart", pizzaTurma.data, pizzaTurma.layout, {responsive: true});
+    {% endif %}
+
+    {% if stacked_bar_json %}
+    var stacked = {{ stacked_bar_json|safe }};
+    Plotly.newPlot("stacked-bar-chart", stacked.data, stacked.layout, {responsive: true});
+    {% endif %}
+
+    {% if scatter_json %}
+    var scatter = {{ scatter_json|safe }};
+    Plotly.newPlot("scatter-chart", scatter.data, scatter.layout, {responsive: true});
+    {% endif %}
+  });
+</script>
+{% endblock %}

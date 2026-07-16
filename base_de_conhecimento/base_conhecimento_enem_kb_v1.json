@@ -1,0 +1,281 @@
+{
+  "schema": "enem_redacao_kb_v1",
+  "metadata": {
+    "nome": "Base de Conhecimento - Correção de Redações ENEM",
+    "fonte": "Cartilha do Participante ENEM 2025",
+    "versao": "1.0.0",
+    "idioma": "pt-BR"
+  },
+  "workflow": [
+    "pre_processamento",
+    "validacao_nota_zero",
+    "analise_tema",
+    "competencia_1",
+    "competencia_2",
+    "competencia_3",
+    "competencia_4",
+    "competencia_5",
+    "arbitragem",
+    "relatorio_final"
+  ],
+  "pre_processamento": {
+    "verificacoes": [
+      "OCR",
+      "idioma",
+      "numero_linhas",
+      "legibilidade",
+      "identificacao_participante",
+      "trechos_copiados"
+    ]
+  },
+  "nota_zero": {
+    "interrompe_correcao": true,
+    "regras": [
+      {
+        "id": "NZ01",
+        "nome": "Fuga total ao tema",
+        "tipo": "eliminatoria"
+      },
+      {
+        "id": "NZ02",
+        "nome": "Texto insuficiente",
+        "limite_linhas": 7
+      },
+      {
+        "id": "NZ03",
+        "nome": "Folha em branco"
+      },
+      {
+        "id": "NZ04",
+        "nome": "Tipo textual inválido"
+      },
+      {
+        "id": "NZ05",
+        "nome": "Identificação do participante"
+      },
+      {
+        "id": "NZ06",
+        "nome": "Texto ilegível"
+      },
+      {
+        "id": "NZ07",
+        "nome": "Impropérios ou desenhos"
+      },
+      {
+        "id": "NZ08",
+        "nome": "Parte deliberadamente desconectada"
+      },
+      {
+        "id": "NZ09",
+        "nome": "Predominância de língua estrangeira"
+      }
+    ]
+  },
+  "competencias": [
+    {
+      "id": "C1",
+      "nome": "Domínio da modalidade escrita formal",
+      "peso": 200,
+      "objetivo": "Avaliar domínio da norma padrão.",
+      "criterios": [
+        "Ortografia",
+        "Acentuação",
+        "Pontuação",
+        "Concordância",
+        "Regência",
+        "Crase",
+        "Estrutura sintática",
+        "Escolha vocabular",
+        "Registro formal"
+      ],
+      "niveis": [
+        0,
+        40,
+        80,
+        120,
+        160,
+        200
+      ],
+      "saida": [
+        "nota",
+        "evidencias",
+        "desvios",
+        "justificativa"
+      ]
+    },
+    {
+      "id": "C2",
+      "nome": "Compreensão da proposta",
+      "peso": 200,
+      "criterios": [
+        "Compreensão do tema",
+        "Tese",
+        "Tipo dissertativo-argumentativo",
+        "Repertório sociocultural",
+        "Produtividade do repertório",
+        "Evitar repertório de bolso",
+        "Tangenciamento",
+        "Fuga ao tema"
+      ],
+      "niveis": [
+        0,
+        40,
+        80,
+        120,
+        160,
+        200
+      ],
+      "saida": [
+        "nota",
+        "aderencia_tema",
+        "repertorios",
+        "evidencias"
+      ]
+    },
+    {
+      "id": "C3",
+      "nome": "Projeto de texto",
+      "peso": 200,
+      "criterios": [
+        "Seleção de argumentos",
+        "Organização",
+        "Progressão argumentativa",
+        "Coerência",
+        "Relação tese-argumentos"
+      ],
+      "niveis": [
+        0,
+        40,
+        80,
+        120,
+        160,
+        200
+      ]
+    },
+    {
+      "id": "C4",
+      "nome": "Coesão textual",
+      "peso": 200,
+      "criterios": [
+        "Conectivos",
+        "Referenciação",
+        "Progressão textual",
+        "Articulação entre parágrafos"
+      ],
+      "niveis": [
+        0,
+        40,
+        80,
+        120,
+        160,
+        200
+      ]
+    },
+    {
+      "id": "C5",
+      "nome": "Proposta de intervenção",
+      "peso": 200,
+      "criterios": [
+        "Ação",
+        "Agente",
+        "Meio",
+        "Finalidade",
+        "Detalhamento",
+        "Respeito aos direitos humanos"
+      ],
+      "niveis": [
+        0,
+        40,
+        80,
+        120,
+        160,
+        200
+      ]
+    }
+  ],
+  "entidades": {
+    "erros": [
+      {
+        "id": "E001",
+        "nome": "Erro ortográfico",
+        "impacta": [
+          "C1"
+        ]
+      },
+      {
+        "id": "E002",
+        "nome": "Registro informal",
+        "impacta": [
+          "C1"
+        ]
+      },
+      {
+        "id": "E003",
+        "nome": "Repertório de bolso",
+        "impacta": [
+          "C2"
+        ]
+      },
+      {
+        "id": "E004",
+        "nome": "Tangenciamento",
+        "impacta": [
+          "C2"
+        ]
+      },
+      {
+        "id": "E005",
+        "nome": "Argumentação superficial",
+        "impacta": [
+          "C3"
+        ]
+      },
+      {
+        "id": "E006",
+        "nome": "Falta de coesão",
+        "impacta": [
+          "C4"
+        ]
+      },
+      {
+        "id": "E007",
+        "nome": "Proposta incompleta",
+        "impacta": [
+          "C5"
+        ]
+      }
+    ],
+    "componentes_intervencao": [
+      "Agente",
+      "Ação",
+      "Meio",
+      "Finalidade",
+      "Detalhamento"
+    ]
+  },
+  "saida_padrao_llm": {
+    "competencia": "C1",
+    "nota": 160,
+    "confianca": 0.93,
+    "evidencias": [
+      {
+        "trecho": "texto...",
+        "criterio": "Ortografia",
+        "analise": "Poucos desvios."
+      }
+    ],
+    "justificativa": "Resumo objetivo da avaliação."
+  },
+  "agentes": [
+    "PreProcessador",
+    "DetectorNotaZero",
+    "EspecialistaTema",
+    "EspecialistaC1",
+    "EspecialistaC2",
+    "EspecialistaC3",
+    "EspecialistaC4",
+    "EspecialistaC5",
+    "Arbitro",
+    "ValidadorFinal"
+  ]
+}

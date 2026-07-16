@@ -1,0 +1,429 @@
+{% extends 'dashboard/base.html' %}
+{% load static dashboard_extras %}
+{% block title %}Debug — {{ redacao.tema|truncatechars:40 }} — Pluma{% endblock %}
+{% block content %}
+
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Home</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'debug-lista' %}">Debug</a></li>
+    <li class="breadcrumb-item active">{{ redacao.tema|truncatechars:40 }}</li>
+  </ol>
+</nav>
+
+<div class="row g-3">
+  <div class="col-12">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
+        <span class="fw-semibold small text-muted text-uppercase">Redação</span>
+        <span class="text-muted small">{{ redacao.criada_em|date:"d/m/Y H:i" }}</span>
+      </div>
+      <div class="card-body">
+        <div class="row g-2 mb-3">
+          <div class="col-md-3"><strong>Tema:</strong> {{ redacao.tema|default:"—" }}</div>
+          <div class="col-md-3"><strong>Aluno:</strong> {{ redacao.usuario.nome_exibicao|default:"?" }}</div>
+          <div class="col-md-3"><strong>Banca:</strong> {{ redacao.pool.nome|default:"—" }}</div>
+          <div class="col-md-3"><strong>Status:</strong>
+            <span class="badge {% if redacao.status == 'corrigida' %}bg-success{% elif redacao.status == 'em_avaliacao' %}bg-info text-dark{% elif redacao.status == 'erro' %}bg-danger{% else %}bg-secondary{% endif %}">
+              {{ redacao.status }}
+            </span>
+          </div>
+        </div>
+        {% if redacao.tema_ref %}
+        <div class="mb-3">
+          <strong>Tema de referência:</strong> {{ redacao.tema_ref.titulo }}
+          {% if redacao.tema_ref.texto %}
+            <details class="mt-1">
+              <summary class="small text-muted">Texto motivador</summary>
+              <pre class="mt-1 p-2 bg-light rounded small" style="white-space:pre-wrap;max-height:150px;overflow-y:auto">{{ redacao.tema_ref.texto }}</pre>
+            </details>
+          {% endif %}
+        </div>
+        {% endif %}
+        <details>
+          <summary class="fw-semibold small text-muted">Texto completo ({{ redacao.texto|length }} caracteres)</summary>
+          <pre class="mt-2 p-3 bg-light rounded small" style="white-space:pre-wrap;max-height:300px;overflow-y:auto">{{ redacao.texto }}</pre>
+        </details>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% for av in avaliacoes %}
+<div class="row g-3 mt-1">
+  <div class="col-12">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
+        <div>
+          <span class="fw-semibold small text-muted text-uppercase">
+            {% if av.avaliador_usuario %}👤{% else %}🤖{% endif %}
+            {{ av.avaliador }}
+          </span>
+          <span class="badge bg-secondary ms-2">{{ av.modelo_llm|default:"—" }}</span>
+          {% if av.corretor_llm %}
+            <span class="badge bg-info text-dark ms-1" title="{{ av.corretor_llm.nome }}">{{ av.corretor_llm.nome }}</span>
+          {% endif %}
+          {% if av.pool %}
+            <span class="badge bg-light text-dark ms-1">{{ av.pool.nome }}</span>
+          {% endif %}
+        </div>
+        <div>
+          <span class="fw-bold fs-5 {% if av.nota_total >= 600 %}text-success{% elif av.nota_total >= 400 %}text-warning{% else %}text-danger{% endif %}">
+            {{ av.nota_total }}
+          </span>
+          <span class="text-muted small ms-2">{{ av.criada_em|date:"d/m H:i" }}</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="table-responsive mb-3">
+          <table class="table table-sm mb-0 align-middle">
+            <thead class="table-light">
+              <tr>
+                <th style="width:8%">Comp.</th>
+                <th style="width:4%">Nota</th>
+                <th style="width:44%">Justificativa</th>
+                <th style="width:44%">Sugestões</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>C1</strong></td>
+                <td>{{ av.c1_nota }}</td>
+                <td class="small">{{ av.c1_justificativa|linebreaksbr }}</td>
+                <td class="small">{{ av.c1_sugestoes|linebreaksbr }}</td>
+              </tr>
+              <tr>
+                <td><strong>C2</strong></td>
+                <td>{{ av.c2_nota }}</td>
+                <td class="small">{{ av.c2_justificativa|linebreaksbr }}</td>
+                <td class="small">{{ av.c2_sugestoes|linebreaksbr }}</td>
+              </tr>
+              <tr>
+                <td><strong>C3</strong></td>
+                <td>{{ av.c3_nota }}</td>
+                <td class="small">{{ av.c3_justificativa|linebreaksbr }}</td>
+                <td class="small">{{ av.c3_sugestoes|linebreaksbr }}</td>
+              </tr>
+              <tr>
+                <td><strong>C4</strong></td>
+                <td>{{ av.c4_nota }}</td>
+                <td class="small">{{ av.c4_justificativa|linebreaksbr }}</td>
+                <td class="small">{{ av.c4_sugestoes|linebreaksbr }}</td>
+              </tr>
+              <tr>
+                <td><strong>C5</strong></td>
+                <td>{{ av.c5_nota }}</td>
+                <td class="small">{{ av.c5_justificativa|linebreaksbr }}</td>
+                <td class="small">{{ av.c5_sugestoes|linebreaksbr }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="d-flex align-items-center gap-2 mt-2 pt-2 border-top feedback-section"
+             data-url="{% url 'debug-feedback' redacao.id av.id %}">
+          <span class="small text-muted">Feedback:</span>
+          <span class="feedback-badge">
+            {% if av.admin_feedback == "bom" %}
+              <span class="badge bg-success">👍</span>
+            {% elif av.admin_feedback == "ruim" %}
+              <span class="badge bg-danger">👎</span>
+            {% endif %}
+          </span>
+          <button class="btn btn-sm feedback-btn py-0 {% if av.admin_feedback == 'bom' %}btn-success{% else %}btn-outline-success{% endif %}"
+                  data-valor="bom">👍</button>
+          <button class="btn btn-sm feedback-btn py-0 {% if av.admin_feedback == 'ruim' %}btn-danger{% else %}btn-outline-danger{% endif %}"
+                  data-valor="ruim">👎</button>
+          <button class="btn btn-sm btn-outline-secondary py-0 feedback-btn"
+                  data-valor="">❌</button>
+          <span class="feedback-rating small text-muted" style="display:none"></span>
+        </div>
+
+        {% with anotacoes=av.anotacoes.all %}
+          {% if anotacoes %}
+            <details class="mb-3">
+              <summary class="fw-semibold small text-muted">Anotações ({{ anotacoes|length }})</summary>
+              <div class="mt-2">
+                {% for anot in anotacoes %}
+                <div class="border rounded p-2 mb-2 bg-light small">
+                  <div class="d-flex justify-content-between">
+                    <span class="badge bg-secondary">{{ anot.tipo_erro }}</span>
+                    <span class="text-muted">pos {{ anot.trecho_inicio }}-{{ anot.trecho_fim }}</span>
+                  </div>
+                  <pre class="mt-1 mb-1" style="white-space:pre-wrap;font-size:inherit;background:inherit;padding:0;margin:0">{{ anot.trecho_texto }}</pre>
+                  {% if anot.comentario %}
+                    <div class="text-muted mt-1">{{ anot.comentario }}</div>
+                  {% endif %}
+                </div>
+                {% endfor %}
+              </div>
+            </details>
+          {% endif %}
+        {% endwith %}
+
+        {% with corretor_id=av.corretor_llm_id|stringformat:"s" %}
+          {% with config=corretores_config|get_item:corretor_id %}
+            {% if config %}
+            <details>
+              <summary class="fw-semibold small text-muted">Configuração do corretor</summary>
+              <div class="mt-2 row g-2 small">
+                <div class="col-md-3"><strong>Modelo:</strong> {{ config.modelo }}</div>
+                <div class="col-md-3"><strong>Provedor:</strong> {{ config.provedor }}</div>
+                <div class="col-md-2"><strong>Temperature:</strong> {{ config.temperature }}</div>
+                <div class="col-md-2"><strong>Top P:</strong> {{ config.top_p }}</div>
+                <div class="col-md-2"><strong>Seed:</strong> {{ config.seed|default:"—" }}</div>
+                <div class="col-md-2"><strong>Output JSON:</strong> {{ config.output_json }}</div>
+                {% if config.skills %}
+                <div class="col-12"><strong>Skills:</strong>
+                  {% for s in config.skills %}
+                    <span class="badge bg-light text-dark me-1">{{ s.nome }}</span>
+                  {% endfor %}
+                </div>
+                {% endif %}
+                {% if config.ferramentas %}
+                <div class="col-12"><strong>Ferramentas ativas:</strong>
+                  {% for f in config.ferramentas %}
+                    <span class="badge bg-light text-dark me-1">{{ f.nome }}</span>
+                  {% endfor %}
+                </div>
+                {% endif %}
+                {% if config.prompt_personalizado %}
+                <div class="col-12">
+                  <details>
+                    <summary class="small text-muted">Prompt personalizado</summary>
+                    <pre class="mt-1 p-2 bg-light rounded" style="white-space:pre-wrap;max-height:200px;overflow-y:auto">{{ config.prompt_personalizado }}</pre>
+                  </details>
+                </div>
+                {% endif %}
+              </div>
+            </details>
+            {% endif %}
+          {% endwith %}
+        {% endwith %}
+
+        {% if av.debug_info %}
+        {% with di=av.debug_info %}
+        <details class="mt-2" open>
+          <summary class="fw-semibold small text-muted">Debug — metadados da avaliação</summary>
+
+          <div class="row g-2 small mt-2">
+            <div class="col-md-3"><strong>⏱ Tempo LLM:</strong>
+              {% if di.tempo_llm_ms %}
+                {{ di.tempo_llm_ms|floatformat:0 }}ms
+              {% else %}—{% endif %}
+            </div>
+            <div class="col-md-3"><strong>📥 Tokens in:</strong>
+              {% if di.tokens_entrada %}{{ di.tokens_entrada }}{% else %}—{% endif %}
+            </div>
+            <div class="col-md-3"><strong>📤 Tokens out:</strong>
+              {% if di.tokens_saida %}{{ di.tokens_saida }}{% else %}—{% endif %}
+            </div>
+            <div class="col-md-3"><strong>📐 Prompt size:</strong>
+              {{ di.tamanho_sistema|default:"0" }} + {{ di.tamanho_usuario|default:"0" }} chars
+            </div>
+            <div class="col-12 mt-2">
+              <strong>📊 Contexto:</strong>
+              {% if di.contexto_utilizado_pct is not None %}
+                {{ di.tokens_entrada }} / {{ di.modelo_max_contexto }} tokens
+                ({{ di.contexto_utilizado_pct }}%)
+                <div class="progress mt-1" style="height:8px; max-width:400px">
+                  <div class="progress-bar bg-info" role="progressbar"
+                       style="width:{{ di.contexto_utilizado_pct }}%"
+                       aria-valuenow="{{ di.contexto_utilizado_pct }}" aria-valuemin="0" aria-valuemax="100">
+                  </div>
+                </div>
+              {% else %}
+                Tokens disponíveis: modelo não reconhecido
+              {% endif %}
+            </div>
+          </div>
+
+          {% if di.ferramentas %}
+          {% with f=di.ferramentas %}
+          <div class="mt-2 p-2 bg-light rounded small">
+            <strong>🛠 Ferramentas Programáticas</strong>
+            <div class="row g-1 mt-1">
+              <div class="col-md-4">
+                📝 <strong>Palavras:</strong> {{ f.palavras.total }}
+                <span class="{% if f.palavras.valido %}text-success{% else %}text-danger{% endif %}">
+                  ({{ f.palavras.valido|yesno:"dentro do limite,FORA DO LIMITE" }})
+                </span>
+              </div>
+              <div class="col-md-4">
+                🎯 <strong>Tema:</strong> score {{ f.tema.score }}
+                {% if f.tema.fuga_total %}
+                  <span class="text-danger">(fuga total)</span>
+                {% elif f.tema.tangencia %}
+                  <span class="text-warning">(tangência)</span>
+                {% else %}
+                  <span class="text-success">(dentro)</span>
+                {% endif %}
+              </div>
+              <div class="col-md-4">
+                📄 <strong>Parágrafos:</strong> {{ f.estrutura.paragrafos }}
+                <span class="{% if f.estrutura.dissertativo %}text-success{% else %}text-warning{% endif %}">
+                  ({{ f.estrutura.dissertativo|yesno:"dissertativo,poucos parágrafos" }})
+                </span>
+              </div>
+            </div>
+            {% if f.tema.termos_tema %}
+            <div class="mt-1">
+              <strong>Termos do tema:</strong>
+              <span class="text-muted">{{ f.tema.termos_tema|join:", " }}</span>
+            </div>
+            {% endif %}
+            {% if f.tema.termos_ausentes %}
+            <div class="mt-1">
+              <strong>⚠ Ausentes no texto:</strong>
+              <span class="text-danger">{{ f.tema.termos_ausentes|join:", " }}</span>
+            </div>
+            {% endif %}
+            {% if f.copias.copias %}
+            <div class="mt-1">
+              <strong>🔍 Cópias:</strong> {{ f.copias.copias|length }} trechos
+              ({{ f.copias.total_caracteres }} caracteres)
+            </div>
+            {% endif %}
+          </div>
+          {% endwith %}
+          {% endif %}
+
+          {% if di.pluma_log_prompts and di.prompt_sistema %}
+          <details class="mt-2">
+            <summary class="small text-muted fw-semibold">💬 Prompt completo enviado ao LLM</summary>
+            <div class="mt-2">
+              <strong class="small">System prompt ({{ di.tamanho_sistema }} chars):</strong>
+              <pre class="mt-1 p-2 bg-dark text-light rounded small"
+                   style="white-space:pre-wrap;max-height:300px;overflow-y:auto;font-size:11px">{{ di.prompt_sistema }}</pre>
+            </div>
+            <div class="mt-2">
+              <strong class="small">User prompt ({{ di.tamanho_usuario }} chars):</strong>
+              <pre class="mt-1 p-2 bg-dark text-light rounded small"
+                   style="white-space:pre-wrap;max-height:200px;overflow-y:auto;font-size:11px">{{ di.prompt_usuario }}</pre>
+            </div>
+          </details>
+          {% endif %}
+
+          <details class="mt-2">
+            <summary class="small text-muted">JSON bruto do debug_info</summary>
+            <pre class="mt-1 p-2 bg-dark text-light rounded small"
+                 style="max-height:300px;overflow-y:auto;font-size:11px">{{ di|pprint }}</pre>
+          </details>
+        </details>
+        {% endwith %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% empty %}
+<div class="row g-3 mt-1">
+  <div class="col-12">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body text-center text-muted py-4">Nenhuma avaliação encontrada para esta redação.</div>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+{% if consolidacao %}
+<div class="row g-3 mt-1">
+  <div class="col-12">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
+        <span class="fw-semibold small text-muted text-uppercase">Consolidação</span>
+        <span>
+          <span class="badge {% if consolidacao.status == 'final' %}bg-success{% else %}bg-warning text-dark{% endif %}">
+            {{ consolidacao.status }}
+          </span>
+          <span class="text-muted small ms-2">{{ consolidacao.atualizada_em|date:"d/m H:i" }}</span>
+        </span>
+      </div>
+      <div class="card-body">
+        <div class="row g-2 mb-3 small">
+          <div class="col-md-2"><strong>Nota:</strong> {{ consolidacao.nota_total }}</div>
+          <div class="col-md-2"><strong>Método:</strong> {{ consolidacao.metodo }}</div>
+          <div class="col-md-2"><strong>Corretores:</strong> {{ consolidacao.quantidade_corretores }}/{{ consolidacao.quantidade_esperada }}</div>
+          <div class="col-md-2"><strong>Usou revisor:</strong> {{ consolidacao.usou_revisor_llm|yesno:"Sim,Não" }}</div>
+          {% if consolidacao.revisado_em %}
+          <div class="col-md-4"><strong>Revisado em:</strong> {{ consolidacao.revisado_em|date:"d/m/Y H:i" }}</div>
+          {% endif %}
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm mb-0 align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>C1</th><th>C2</th><th>C3</th><th>C4</th><th>C5</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>{{ consolidacao.c1_nota }}</td>
+                <td>{{ consolidacao.c2_nota }}</td>
+                <td>{{ consolidacao.c3_nota }}</td>
+                <td>{{ consolidacao.c4_nota }}</td>
+                <td>{{ consolidacao.c5_nota }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        {% if consolidacao.parecer_revisor %}
+        <div class="mt-2">
+          <details>
+            <summary class="fw-semibold small text-muted">Parecer do revisor LLM</summary>
+            <pre class="mt-1 p-2 bg-light rounded small" style="white-space:pre-wrap">{{ consolidacao.parecer_revisor }}</pre>
+          </details>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div class="row g-3 mt-1">
+  <div class="col-12">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white py-2">
+        <span class="fw-semibold small text-muted text-uppercase">Timeline</span>
+      </div>
+      <div class="card-body p-0">
+        <div class="list-group list-group-flush small">
+          <div class="list-group-item py-2 px-3 d-flex align-items-center gap-2">
+            <span class="text-muted">{{ redacao.criada_em|date:"d/m H:i" }}</span>
+            <span class="badge bg-secondary">📝</span>
+            <span>Redação submetida por {{ redacao.usuario.nome_exibicao|default:"?" }}</span>
+            {% if redacao.pool %}
+              <span class="text-muted">→ banca «{{ redacao.pool.nome }}»</span>
+            {% endif %}
+          </div>
+          {% for av in avaliacoes %}
+          <div class="list-group-item py-2 px-3 d-flex align-items-center gap-2">
+            <span class="text-muted">{{ av.criada_em|date:"d/m H:i" }}</span>
+            <span class="badge bg-{% if av.avaliador_usuario %}primary{% else %}info{% endif %}">
+              {% if av.avaliador_usuario %}👤{% else %}🤖{% endif %}
+            </span>
+            <span>{{ av.avaliador }}</span>
+            <span class="fw-semibold {% if av.nota_total >= 600 %}text-success{% elif av.nota_total >= 400 %}text-warning{% else %}text-danger{% endif %}">
+              → {{ av.nota_total }}
+            </span>
+          </div>
+          {% endfor %}
+          {% if consolidacao %}
+          <div class="list-group-item py-2 px-3 d-flex align-items-center gap-2">
+            <span class="text-muted">{{ consolidacao.atualizada_em|date:"d/m H:i" }}</span>
+            <span class="badge bg-success">✅</span>
+            <span>Consolidação ({{ consolidacao.metodo }}) → nota {{ consolidacao.nota_total }}</span>
+            <span class="text-muted">status: {{ consolidacao.status }}</span>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% block extra_js %}
+<script src="{% static 'dashboard/js/debug-feedback.js' %}"></script>
+{% endblock %}
+{% endblock %}

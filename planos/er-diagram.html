@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Diagrama ER — Essay Essay</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0f172a; color: #e2e8f0; font-family: system-ui, -apple-system, sans-serif; padding: 2rem; }
+  h1 { font-size: 1.8rem; margin-bottom: .25rem; color: #f1f5f9; }
+  .subtitle { color: #94a3b8; margin-bottom: 2rem; font-size: .95rem; }
+  .diagram-wrapper { background: #1e293b; border-radius: 1rem; padding: 2rem; box-shadow: 0 4px 24px rgba(0,0,0,.4); }
+  #mermaid-diagram { text-align: center; }
+  #mermaid-diagram svg { max-width: 100%; height: auto; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; margin-top: 2rem; }
+  .card { background: #1e293b; border-radius: .75rem; padding: 1.25rem; border-left: 4px solid #38bdf8; }
+  .card h3 { font-size: 1rem; color: #f1f5f9; margin-bottom: .25rem; }
+  .card .app { font-size: .75rem; color: #64748b; margin-bottom: .5rem; }
+  .card .fields { font-size: .8rem; color: #94a3b8; line-height: 1.6; }
+  .card .fields span { color: #38bdf8; }
+  .card .fks { font-size: .75rem; color: #a78bfa; margin-top: .5rem; border-top: 1px solid #334155; padding-top: .5rem; }
+  .footer { text-align: center; margin-top: 2rem; font-size: .8rem; color: #475569; }
+  .legend { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1rem; font-size: .8rem; color: #94a3b8; }
+  .legend-item { display: flex; align-items: center; gap: .4rem; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .legend-dot.n1 { background: #38bdf8; } .legend-dot.n2 { background: #34d399; } .legend-dot.n3 { background: #f59e0b; }
+</style>
+</head>
+<body>
+
+<h1>🗄️ Essay Essay — Diagrama Entidade-Relacionamento</h1>
+<p class="subtitle">Pluma — Sistema de correção de redações ENEM • 14 tabelas • PostgreSQL</p>
+
+<div class="legend">
+  <span class="legend-item"><span class="legend-dot n1"></span> accounts</span>
+  <span class="legend-item"><span class="legend-dot n2"></span> redacoes</span>
+  <span class="legend-item"><span class="legend-dot n3"></span> avaliacoes</span>
+  <span class="legend-item"><span class="legend-dot n1"></span> corretores</span>
+</div>
+
+<div class="diagram-wrapper">
+<div id="mermaid-diagram">
+<pre class="mermaid">
+erDiagram
+    CustomUser ||--o{ Redacao : "usuario"
+    CustomUser ||--o{ Avaliacao : "avaliador_usuario"
+    CustomUser ||--o{ Notificacao : "usuario"
+    CustomUser ||--o{ PreferenciaRota : "usuario"
+    CustomUser ||--o{ TemaRedacao : "criado_por"
+    CustomUser ||--o{ PoolCorretor : "usuario"
+
+    Redacao ||--o{ Avaliacao : ""
+    Redacao ||--o{ Consolidacao : ""
+    Redacao ||--o{ Notificacao : ""
+    Redacao }o--|| TemaRedacao : "tema_ref"
+
+    Avaliacao ||--o{ Anotacao : ""
+    Avaliacao }o--|| PoolCorrecao : "pool"
+    Avaliacao }o--o| CorretorLLM : "corretor_llm"
+
+    PoolCorrecao ||--o{ PoolCorretor : "corretores"
+    PoolCorrecao ||--o{ Consolidacao : ""
+    PoolCorrecao ||--o{ PreferenciaRota : ""
+    PoolCorrecao }o--o| CorretorLLM : "revisor_corretor"
+
+    PoolCorretor }o--o| CorretorLLM : ""
+    PoolCorretor }o--o| CustomUser : ""
+
+    CorretorLLM }o--o| ProvedorLLM : "provedor"
+    CorretorLLM }o--o| PromptTemplate : "prompt_template_ref"
+    CorretorLLM ||--o{ PoolCorrecao : "bancas_como_revisor"
+    CorretorLLM ||--o{ PoolCorretor : "vinculos_pool"
+    CorretorLLM }o--o{ Skill : "skills"
+    CorretorLLM }o--o{ Ferramenta : "ferramentas_ativas"
+
+    PreferenciaRota ||--o{ PreferenciaRotaCorretor : ""
+    PreferenciaRotaCorretor }o--|| PoolCorretor : ""
+</pre>
+</div>
+</div>
+
+<div class="cards">
+
+<div class="card" style="border-left-color:#38bdf8">
+  <h3>CustomUser</h3>
+  <div class="app">accounts / <tt>usuarios</tt></div>
+  <div class="fields">
+    <span>id</span> UUID · <span>email</span> (USERNAME_FIELD)<br>
+    <span>username</span> · <span>nome</span><br>
+    <span>user_type</span>: admin | professor | aluno | corretor
+  </div>
+  <div class="fks">→ Redacao · Avaliacao · Notificacao · PreferenciaRota · TemaRedacao · PoolCorretor</div>
+</div>
+
+<div class="card" style="border-left-color:#34d399">
+  <h3>Redacao</h3>
+  <div class="app">redacoes / <tt>redacoes</tt></div>
+  <div class="fields">
+    <span>id</span> UUID · <span>texto</span> TEXT<br>
+    <span>tema</span> (denormalized) · <span>status</span>: pendente | em_avaliacao | corrigida | erro<br>
+    <span>excluida_em</span> (soft delete)
+  </div>
+  <div class="fks">→ CustomUser.usuario · → TemaRedacao.tema_ref<br>
+  ← Avaliacao · Consolidacao · Notificacao</div>
+</div>
+
+<div class="card" style="border-left-color:#f59e0b">
+  <h3>Avaliacao</h3>
+  <div class="app">avaliacoes / <tt>avaliacoes</tt></div>
+  <div class="fields">
+    <span>id</span> UUID · notas C1-C5 + total (Integer)<br>
+    justificativas + sugestoes (Text) p/ cada competencia<br>
+    <span>avaliador</span> (text legacy) · <span>modelo_llm</span><br>
+    <span>rascunho</span> bool
+  </div>
+  <div class="fks">→ Redacao · → CustomUser.avaliador_usuario<br>
+  → PoolCorrecao.pool · → CorretorLLM.corretor_llm<br>
+  ← Anotacao</div>
+</div>
+
+<div class="card" style="border-left-color:#f59e0b">
+  <h3>Anotacao</h3>
+  <div class="app">avaliacoes / <tt>anotacoes</tt></div>
+  <div class="fields">
+    <span>id</span> UUID · <span>trecho_inicio/fim</span> int<br>
+    <span>trecho_texto</span> (500 char)<br>
+    <span>tipo_erro</span>: ortografia, concordancia, pontuacao, coesao, vocabulario, argumentacao, clareza, outro<br>
+    <span>comentario</span> TEXT
+  </div>
+  <div class="fks">→ Avaliacao</div>
+</div>
+
+<div class="card" style="border-left-color:#f59e0b">
+  <h3>Consolidacao</h3>
+  <div class="app">avaliacoes / <tt>consolidacoes</tt></div>
+  <div class="fields">
+    <span>id</span> UUID · notas C1-C5 + total<br>
+    <span>status</span>: parcial<br>
+    <span>metodo</span>: mediana | media<br>
+    <span>usou_revisor_llm</span> bool · <span>parecer_revisor</span>
+  </div>
+  <div class="fks">→ Redacao · → PoolCorrecao</div>
+</div>
+
+<div class="card" style="border-left-color:#f59e0b">
+  <h3>Notificacao</h3>
+  <div class="app">avaliacoes / <tt>notificacoes</tt></div>
+  <div class="fields">
+    <span>id</span> UUID · <span>tipo</span>: correcao_solicitada/aceita/recusada/concluida<br>
+    <span>mensagem</span> TEXT · <span>lida</span> bool
+  </div>
+  <div class="fks">→ CustomUser · → Redacao</div>
+</div>
+
+<div style="border-left-color:#38bdf8" class="card">
+  <h3>ProvedorLLM</h3>
+  <div class="app">corretores / <tt>provedores_llm</tt></div>
+  <div class="fields">
+    <span>id</span> UUID · <span>nome</span> (unique)<br>
+    <span>api_key</span> (encrypted) · <span>base_url</span><br>
+    <span>ativo</span> bool
+  </div>
+  <div class="fks">← CorretorLLM</div>
+</div>
+
+<div style="border-left-color:#38bdf8" class="card">
+  <h3>CorretorLLM</h3>
+  <div class="app">corretores / <tt>corretores_llm</tt></div>
+  <div class="fields">
+    <span>id</span> UUID · <span>nome</span><br>
+    <span>modelo</span> (ex: gpt-4o) · <span>provedor_str</span><br>
+    <span>prompt_template</span>: detalhado | conciso | minimo<br>
+    <span>competencias</span> JSON · <span>ferramentas</span> JSON
+  </div>
+  <div class="fks">→ ProvedorLLM · → PromptTemplate<br>
+  ⇔ Skill (M2M) · ⇔ Ferramenta (M2M)<br>
+  → CorretorLLM.subagentes (auto-ref M2M)<br>
+  ← Avaliacao · PoolCorretor · PoolCorrecao (revisor)</div>
+</div>
+
+<div style="border-left-color:#38bdf8" class="card">
+  <h3>PoolCorrecao</h3>
+  <div class="app">corretores / <tt>pools_correcao</tt></div>
+  <div class="fields">
+    <span>id</span> UUID · <span>nome</span><br>
+    <span>metodo</span>: mediana | media<br>
+    <span>limiar_desvio</span> float · <span>ativo</span> bool
+  </div>
+  <div class="fks">→ CorretorLLM.revisor_corretor<br>
+  ← PoolCorretor · Consolidacao · PreferenciaRota · Avaliacao</div>
+</div>
+
+<div style="border-left-color:#38bdf8" class="card">
+  <h3>PoolCorretor</h3>
+  <div class="app">corretores / <tt>pool_corretores</tt></div>
+  <div class="fields">
+    <span>id</span> UUID · <span>tipo</span>: llm | humano<br>
+    <span>peso</span> float · <span>ordem</span> int<br>
+    <span>descricao</span> TEXT
+  </div>
+  <div class="fks">→ PoolCorrecao · → CorretorLLM · → CustomUser<br>
+  ← PreferenciaRotaCorretor</div>
+</div>
+
+<div style="border-left-color:#38bdf8" class="card">
+  <h3>PromptTemplate</h3>
+  <div class="app">corretores / <tt>prompts_template</tt></div>
+  <div class="fields">
+    <span>id</span> UUID · <span>nome</span><br>
+    <span>tipo</span>: base | custom<br>
+    <span>sistema_prompt</span> TEXT · <span>formato_saida</span> TEXT<br>
+    <span>competencias_padrao</span> JSON
+  </div>
+  <div class="fks">← CorretorLLM</div>
+</div>
+
+<div style="border-left-color:#38bdf8" class="card">
+  <h3>Skill</h3>
+  <div class="app">corretores / <tt>skills</tt></div>
+  <div class="fields">
+    <span>id</span> UUID · <span>nome</span><br>
+    <span>descricao</span> TEXT · <span>competencias</span> JSON<br>
+    <span>icone</span>
+  </div>
+  <div class="fks">⇔ CorretorLLM (M2M)</div>
+</div>
+
+<div style="border-left-color:#38bdf8" class="card">
+  <h3>Ferramenta</h3>
+  <div class="app">corretores / <tt>ferramentas</tt></div>
+  <div class="fields">
+    <span>id</span> UUID · <span>nome</span><br>
+    <span>slug</span> (unique) · <span>descricao</span> TEXT<br>
+    <span>ativa_por_padrao</span> bool
+  </div>
+  <div class="fks">⇔ CorretorLLM (M2M)</div>
+</div>
+
+<div class="card" style="border-left-color:#34d399">
+  <h3>PreferenciaRota</h3>
+  <div class="app">redacoes / <tt>preferencias_rota</tt></div>
+  <div class="fields">
+    <span>id</span> UUID · <span>tipo</span>: padrao | banca | corretores
+  </div>
+  <div class="fks">→ CustomUser · → PoolCorrecao<br>
+  ← PreferenciaRotaCorretor</div>
+</div>
+
+<div class="card" style="border-left-color:#34d399">
+  <h3>PrefRotaCorretor</h3>
+  <div class="app">redacoes / <tt>preferencias_rota_corretores</tt></div>
+  <div class="fields">
+    <span>id</span> UUID · <span>criada_em</span>
+  </div>
+  <div class="fks">→ PreferenciaRota · → PoolCorretor<br>
+  (unique_together: preferencia + pool_corretor)</div>
+</div>
+
+<div class="card" style="border-left-color:#34d399">
+  <h3>TemaRedacao</h3>
+  <div class="app">redacoes / <tt>temas_redacao</tt></div>
+  <div class="fields">
+    <span>id</span> UUID · <span>titulo</span><br>
+    <span>texto</span> TEXT · <span>imagem</span> (ImageField)<br>
+    <span>ativo</span> bool
+  </div>
+  <div class="fks">→ CustomUser.criado_por · ← Redacao</div>
+</div>
+
+</div>
+
+<div class="footer">
+  Essay Essay — gerado em 11/07/2026 · Apenas Leitura
+</div>
+
+<script>
+mermaid.initialize({
+  theme: 'dark',
+  themeVariables: {
+    primaryColor: '#1e293b',
+    primaryBorderColor: '#334155',
+    lineColor: '#475569',
+    secondaryColor: '#0f172a',
+    tertiaryColor: '#1e293b',
+    fontSize: '14px',
+    fontFamily: 'system-ui, sans-serif',
+  },
+  er: {
+    diagramPadding: 20,
+    layoutDirection: 'TB',
+    minEntityWidth: 120,
+    entityPadding: 12,
+    stroke: '#334155',
+    fill: '#1e293b',
+    useMaxWidth: true,
+  }
+});
+</script>
+</body>
+</html>

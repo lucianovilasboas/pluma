@@ -1,0 +1,888 @@
+{% extends "dashboard/base.html" %}
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Home</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'agentes' %}">Agentes de IA</a></li>
+    <li class="breadcrumb-item active">{{ agente.nome }}</li>
+  </ol>
+</nav>
+
+{% if agente.rating > 0 or sugestoes %}
+<div class="card border-0 shadow-sm mb-4 {% if sugestoes and sugestoes.0.severidade == 'alta' %}border-danger{% endif %}">
+  <div class="card-body">
+    <div class="d-flex align-items-center justify-content-between">
+      <div>
+        <strong>⭐ Rating: {{ agente.rating }}</strong>
+        {% if qtd_feedbacks > 0 %}
+          <span class="text-muted small ms-2">baseado em {{ qtd_feedbacks }} feedback(s)</span>
+        {% endif %}
+        {% if agente.rating_atualizado_em %}
+          <span class="text-muted small ms-2">atualizado {{ agente.rating_atualizado_em|date:"d/m/Y" }}</span>
+        {% endif %}
+      </div>
+      <a href="{% url 'debug-lista' %}" class="btn btn-sm btn-outline-secondary">Ir para Debug</a>
+    </div>
+
+    {% if sugestoes %}
+    <div class="mt-3">
+      {% for s in sugestoes %}
+      <div class="d-flex align-items-center justify-content-between py-1
+        {% if s.severidade == 'alta' %}text-danger fw-semibold{% elif s.severidade == 'media' %}text-warning fw-semibold{% endif %}">
+        <span>
+          {% if s.severidade == 'alta' %}🔴{% elif s.severidade == 'media' %}⚠{% else %}ℹ{% endif %}
+          {{ s.label }}
+          {% if s.valor_atual and s.valor_sugerido %}
+            <span class="text-muted fw-normal">({{ s.valor_atual }} → {{ s.valor_sugerido }})</span>
+          {% endif %}
+        </span>
+        <form method="post" style="display:inline">
+          {% csrf_token %}
+          <input type="hidden" name="acao" value="aplicar_sugestao">
+          <input type="hidden" name="tipo_sugestao" value="{{ s.tipo }}">
+          {% if s.valor_sugerido %}
+            <input type="hidden" name="valor_sugerido" value="{{ s.valor_sugerido }}">
+          {% endif %}
+          <button type="submit" class="btn btn-sm btn-outline-primary py-0">Aplicar</button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <h2 class="h4 mb-1">🤖 {{ agente.nome }}</h2>
+    <div class="small text-muted">
+      Modelo: <code>{{ agente.modelo }}</code> ·
+      Provedor: {{ agente.provedor.nome|default:agente.provedor_str|default:"—" }}
+    </div>
+  </div>
+  <div class="d-flex gap-2">
+    <button class="btn btn-sm btn-outline-secondary" onclick="duplicarAgente()" title="Duplicar">📋 Duplicar</button>
+    <button class="btn btn-sm btn-outline-danger" onclick="excluirAgente()" title="Excluir">🗑 Excluir</button>
+  </div>
+</div>
+
+<form method="post" id="form-agente">
+  {% csrf_token %}
+
+  <div class="row g-3">
+    <div class="col-12">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-3">
+          <h5 class="mb-0 small text-uppercase text-muted fw-semibold">Identidade</h5>
+        </div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label small fw-semibold text-muted">Nome do agente</label>
+            <input type="text" class="form-control" name="nome" value="{{ agente.nome }}" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold text-muted">Provedor</label>
+            <select class="form-select" name="provedor">
+              <option value="">— Nenhum —</option>
+              {% for p in provedores %}
+                <option value="{{ p.id }}" {% if agente.provedor_id == p.id %}selected{% endif %}>
+                  {{ p.nome }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold text-muted">Modelo</label>
+            <select class="form-select" name="modelo" id="modelo-select" required>
+              <option value="">— Selecione um provedor primeiro —</option>
+            </select>
+            <div class="form-text small">Modelos disponíveis para o provedor selecionado.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-3">
+          <h5 class="mb-0 small text-uppercase text-muted fw-semibold">Descrição <span class="badge bg-warning text-dark ms-1 fw-normal">uso interno — não entra no prompt</span></h5>
+        </div>
+        <div class="card-body">
+          <textarea name="descricao" class="form-control mb-3" rows="3"
+                    placeholder="Resumo administrativo. Máximo 3 linhas. As skills que afetam o prompt estão na seção 'Skills' abaixo.">{{ agente.descricao|default:'' }}</textarea>
+          <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-gerar-descricao"
+                  {% if not agente.provedor_id %}disabled{% endif %}>
+            Gerar resumo com IA
+          </button>
+          <div id="descricao-spinner" class="spinner-border spinner-border-sm text-primary d-none ms-2" role="status">
+            <span class="visually-hidden">Gerando...</span>
+          </div>
+          <span id="descricao-status" class="small text-success d-none ms-2">Resumo gerado!</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+          <h5 class="mb-0 small text-uppercase text-muted fw-semibold">Prompt de Avaliação</h5>
+          <a href="{% url 'agentes-prompts' %}" class="btn btn-outline-primary btn-sm">Gerenciar templates</a>
+        </div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label small fw-semibold text-muted">Template de prompt <span class="text-muted fw-normal">(opcional)</span></label>
+            <select class="form-select" name="prompt_template_ref">
+              <option value="">— Usar template padrão (Avaliador Detalhado) —</option>
+              {% for t in templates %}
+                <option value="{{ t.id }}" {% if agente.prompt_template_ref_id == t.id %}selected{% endif %}>
+                  {{ t.nome }}{% if t.tipo == 'base' %} (Base){% endif %}
+                </option>
+              {% endfor %}
+            </select>
+            <div class="form-text small">
+              Se vazio, usa o template padrão do sistema.
+              Se o <strong>Prompt customizado</strong> abaixo estiver preenchido,
+              apenas o formato de saída (JSON) deste template é aproveitado.
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold text-muted">Prompt customizado <span class="text-muted fw-normal">(opcional — substitui o prompt acima)</span></label>
+            <textarea name="prompt_personalizado" class="form-control mb-2" rows="6"
+                      placeholder="Quando preenchido, substitui completamente a instrução de sistema do template selecionado acima. O formato de saída (JSON) continua vindo do template.">{{ agente.prompt_personalizado|default:'' }}</textarea>
+            <div class="form-text small">
+              Quando preenchido, substitui completamente a instrução de sistema do template selecionado.
+              O formato de saída (JSON) continua vindo do template.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-3">
+          <h5 class="mb-0 small text-uppercase text-muted fw-semibold">Configurações de Geração</h5>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-12 col-md-6">
+              <label class="form-label small fw-semibold text-muted">Temperature (0 = determinístico)</label>
+              <input type="range" class="form-range" name="temperature" min="0" max="2" step="0.01"
+                     value="{{ agente.temperature|default:'0.0' }}"
+                     oninput="document.getElementById('temp-val').textContent = this.value">
+              <div class="form-text small text-center">
+                Valor: <strong id="temp-val">{{ agente.temperature|default:'0.0' }}</strong>
+              </div>
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label small fw-semibold text-muted">Top P (nucleus sampling)</label>
+              <input type="range" class="form-range" name="top_p" min="0" max="1" step="0.01"
+                     value="{{ agente.top_p|default:'0.1' }}"
+                     oninput="document.getElementById('top-p-val').textContent = this.value">
+              <div class="form-text small text-center">
+                Valor: <strong id="top-p-val">{{ agente.top_p|default:'0.1' }}</strong>
+              </div>
+            </div>
+            <div class="col-12 col-md-4">
+              <label class="form-label small fw-semibold text-muted">Seed (opcional, para reprodutibilidade)</label>
+              <input type="number" class="form-control" name="seed"
+                     value="{% if agente.seed is not none %}{{ agente.seed }}{% endif %}"
+                     placeholder="Ex: 42 (vazio = aleatório)">
+            </div>
+            <div class="col-12 col-md-4 d-flex align-items-end">
+              <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" name="output_json" value="1"
+                       id="output-json" {% if agente.output_json %}checked{% endif %}>
+                <label class="form-check-label small fw-semibold text-muted" for="output-json">
+                  Forçar JSON (response_format)
+                </label>
+              </div>
+            </div>
+            <div class="col-12 col-md-4 d-flex align-items-end">
+              <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" name="incluir_protocolo_enem"
+                       id="incluir-protocolo"
+                       {% if agente.incluir_protocolo_enem %}checked{% endif %}>
+                <label class="form-check-label small fw-semibold text-muted" for="incluir-protocolo">
+                  Protocolo de Avaliação ENEM (regras oficiais)
+                </label>
+              </div>
+            </div>
+            <div class="col-12 col-md-4 d-flex align-items-end">
+              <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" name="incluir_base_conhecimento"
+                       id="incluir-base"
+                       {% if agente.incluir_base_conhecimento %}checked{% endif %}>
+                <label class="form-check-label small fw-semibold text-muted" for="incluir-base">
+                  Base de Conhecimento (redações nota 1000)
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+          <h5 class="mb-0 small text-uppercase text-muted fw-semibold">Skills</h5>
+          <a href="{% url 'admin-skills' %}" class="btn btn-outline-primary btn-sm">Gerenciar skills</a>
+        </div>
+        <div class="card-body">
+          {% if todas_skills %}
+            <div class="row g-2">
+              {% for s in todas_skills %}
+                <div class="col-12 col-md-6">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="skills" value="{{ s.id }}"
+                           id="skill-{{ s.id }}"
+                           {% if s.id in skills_vinculadas %}checked{% endif %}>
+                    <label class="form-check-label small" for="skill-{{ s.id }}">
+                      {% if s.icone %}{{ s.icone }}{% endif %}
+                      {{ s.nome }}
+                    </label>
+                    {% if s.descricao %}
+                      <div class="form-text small ms-4 skill-desc-trunc" title="{{ s.descricao }}">{{ s.descricao }}</div>
+                    {% endif %}
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="text-muted small mb-0">Nenhuma skill cadastrada.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+          <h5 class="mb-0 small text-uppercase text-muted fw-semibold">Ferramentas</h5>
+          <a href="{% url 'admin-ferramentas' %}" class="btn btn-outline-primary btn-sm">Gerenciar ferramentas</a>
+        </div>
+        <div class="card-body">
+          {% if todas_ferramentas %}
+            <div class="row g-2">
+              {% for f in todas_ferramentas %}
+                <div class="col-12 col-md-6">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="ferramentas_ativas" value="{{ f.id }}"
+                           id="ferr-{{ f.id }}"
+                           {% if f.id in ferramentas_vinculadas %}checked{% endif %}>
+                    <label class="form-check-label small" for="ferr-{{ f.id }}">
+                      {{ f.nome }}
+                    </label>
+                    {% if f.descricao %}
+                      <div class="form-text small ms-4">{{ f.descricao }}</div>
+                    {% endif %}
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="text-muted small mb-0">Nenhuma ferramenta cadastrada.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-3">
+          <h5 class="mb-0 small text-uppercase text-muted fw-semibold">Subagentes</h5>
+        </div>
+        <div class="card-body">
+          {% if subagentes_disponiveis %}
+            <p class="small text-muted mb-2">
+              Selecione agentes especialistas para atuar como subagentes. Cada subagente avaliará a redação com seu próprio prompt e skills.
+            </p>
+            <div class="row g-2">
+              {% for sub in subagentes_disponiveis %}
+                <div class="col-12 col-md-6">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="subagentes" value="{{ sub.id }}"
+                           id="sub-{{ sub.id }}"
+                           {% if sub.id in subagentes_vinculados %}checked{% endif %}>
+                    <label class="form-check-label small" for="sub-{{ sub.id }}">
+                      🤖 {{ sub.nome }}
+                      {% if sub.modelo %}
+                        <span class="text-muted small">({{ sub.modelo }})</span>
+                      {% endif %}
+                    </label>
+                    {% if sub.descricao %}
+                      <div class="form-text small ms-4">{{ sub.descricao|truncatewords:15 }}</div>
+                    {% endif %}
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="text-muted small mb-0">
+              Nenhum outro agente disponível.
+              <a href="{% url 'admin-corretor-add' %}" class="text-decoration-none">Crie agentes especialistas</a>
+              e volte para vinculá-los como subagentes.
+            </p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-3">
+          <h5 class="mb-0 small text-uppercase text-muted fw-semibold">Bancas que usam este agente</h5>
+        </div>
+        <div class="card-body">
+          {% with vinculos=agente.vinculos_pool.all %}
+            {% if vinculos %}
+              <div class="d-flex flex-wrap gap-2" id="lista-bancas">
+                {% for v in vinculos %}
+                  <a href="{% url 'banca-detalhe' v.pool_id %}" class="badge bg-primary-subtle text-primary-emphasis text-decoration-none px-3 py-2">
+                    {{ v.pool.nome }}
+                  </a>
+                {% endfor %}
+              </div>
+            {% else %}
+              <p class="text-muted small mb-0">Este agente não está alocado em nenhuma banca.</p>
+            {% endif %}
+          {% endwith %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body d-flex gap-2">
+          <button type="submit" class="btn btn-primary">Salvar alterações</button>
+          <button type="button" class="btn btn-outline-primary" id="btn-testar"
+                  {% if not agente.provedor_id %}disabled{% endif %}
+                  onclick="abrirModalTeste()">
+            🧪 Testar agente
+          </button>
+          <button type="button" class="btn btn-outline-secondary" id="btn-preview"
+                  onclick="abrirModalPreview()">
+            📝 Visualizar Prompt
+          </button>
+          <a href="{% url 'agentes' %}" class="btn btn-outline-secondary">Cancelar</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+
+<div class="modal fade" id="modal-teste" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">🧪 Testar agente: {{ agente.nome }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Tema da redação</label>
+          <input type="text" class="form-control" id="teste-tema" value="Desafios da educação no Brasil contemporâneo">
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Redação de teste</label>
+          <textarea class="form-control" id="teste-texto" rows="10" placeholder="Cole ou digite uma redação para testar..."></textarea>
+          <div class="form-text small">
+            <a href="#" onclick="usarExemplo(); return false;">Usar redação de exemplo</a>
+          </div>
+        </div>
+        <div id="teste-resultado" class="d-none">
+          <hr>
+          <div id="teste-conteudo"></div>
+          <div id="teste-prompt-btn-container" class="d-none mt-2 text-end">
+            <button type="button" class="btn btn-outline-info btn-sm" onclick="abrirModalPromptCompleto()">
+              📝 Mostrar prompt completo
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Fechar</button>
+        <button type="button" class="btn btn-primary btn-sm" id="btn-executar-teste" onclick="executarTeste()">
+          Executar teste
+        </button>
+        <div id="teste-spinner" class="spinner-border spinner-border-sm text-primary d-none" role="status">
+          <span class="visually-hidden">Testando...</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modal-preview" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">📝 Prompt do Agente: {{ agente.nome }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="preview-loading" class="text-center py-4">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Carregando...</span>
+          </div>
+          <p class="text-muted small mt-2">Montando prompt...</p>
+        </div>
+        <div id="preview-resultado" class="d-none">
+          <div class="mb-3">
+            <span class="fw-semibold small text-muted text-uppercase">Origem:</span>
+            <span id="preview-origem" class="badge bg-info-subtle text-info-emphasis ms-1"></span>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold text-muted">Prompt completo</label>
+            <div class="position-relative">
+              <pre id="preview-conteudo" class="bg-light p-3 rounded small mb-0"
+                   style="white-space:pre-wrap; max-height:400px; overflow-y:auto;"></pre>
+              <button class="btn btn-sm btn-outline-secondary position-absolute top-0 end-0 m-2"
+                      onclick="copiarPreview()" title="Copiar prompt">📋</button>
+            </div>
+          </div>
+          <div id="preview-skills-container" class="d-none mb-3">
+            <label class="form-label small fw-semibold text-muted">Skills vinculadas</label>
+            <div id="preview-skills" class="d-flex flex-wrap gap-2"></div>
+          </div>
+          <div id="preview-ferramentas-container" class="d-none mb-3">
+            <label class="form-label small fw-semibold text-muted">Ferramentas ativas</label>
+            <div id="preview-ferramentas" class="d-flex flex-wrap gap-2"></div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Fechar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modal-prompt-completo" tabindex="-1">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">📝 Prompt completo usado no teste</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row mb-3 g-2">
+          <div class="col-md-6">
+            <span class="fw-semibold small text-muted text-uppercase">Agente:</span>
+            <span id="prompt-completo-agente" class="badge bg-primary-subtle text-primary-emphasis ms-1"></span>
+          </div>
+          <div class="col-md-6">
+            <span class="fw-semibold small text-muted text-uppercase">Modelo:</span>
+            <span id="prompt-completo-modelo" class="badge bg-dark-subtle text-dark-emphasis ms-1"></span>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold text-muted">System prompt</label>
+          <div class="position-relative">
+            <pre id="prompt-completo-sistema" class="bg-light p-3 rounded small mb-0 preview-prompt-code"
+                 style="white-space:pre-wrap; max-height:350px; overflow-y:auto;"></pre>
+            <button class="btn btn-sm btn-outline-secondary position-absolute top-0 end-0 m-2"
+                    onclick="copiarTexto('#prompt-completo-sistema')" title="Copiar system prompt">📋</button>
+          </div>
+        </div>
+        <div class="mb-0">
+          <label class="form-label small fw-semibold text-muted">User prompt (com a redação)</label>
+          <div class="position-relative">
+            <pre id="prompt-completo-usuario" class="bg-light p-3 rounded small mb-0 preview-prompt-code"
+                 style="white-space:pre-wrap; max-height:250px; overflow-y:auto;"></pre>
+            <button class="btn btn-sm btn-outline-secondary position-absolute top-0 end-0 m-2"
+                    onclick="copiarTexto('#prompt-completo-usuario')" title="Copiar user prompt">📋</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Fechar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .skill-desc-trunc {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: help;
+  }
+  .preview-prompt-code {
+    font-size: 0.8rem;
+    line-height: 1.5;
+  }
+  .preview-badge-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<style>
+  .skill-desc-trunc {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: help;
+  }
+  .preview-prompt-code {
+    font-size: 0.8rem;
+    line-height: 1.5;
+  }
+  .preview-badge-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+  .preview-badge {
+    cursor: help;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+</style>
+<script>
+(function() {
+  var agenteId = '{{ agente.id }}';
+  var ultimoPrompt = null;
+  var ultimoAgente = '';
+  var ultimoModelo = '';
+
+  function getCSRFToken() {
+    var cookies = document.cookie.split(';');
+    for (var i = 0; i < cookies.length; i++) {
+      var c = cookies[i].trim();
+      if (c.startsWith('csrftoken=')) return c.substring(10);
+    }
+    return '';
+  }
+
+  function api(method, url, body) {
+    var opts = {
+      method: method,
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
+      credentials: 'include',
+    };
+    if (body) opts.body = JSON.stringify(body);
+    return fetch(url, opts).then(function(r) {
+      if (!r.ok) throw new Error('Erro ' + r.status);
+      if (r.status === 204) return null;
+      return r.json();
+    });
+  }
+
+  window.duplicarAgente = function() {
+    if (!confirm('Duplicar este agente?')) return;
+    api('POST', '/api/v1/admin/corretores-llm/' + agenteId + '/duplicar')
+      .then(function(data) {
+        location.href = '/dashboard/agentes/' + data.id;
+      })
+      .catch(function(e) { alert('Erro ao duplicar: ' + e.message); });
+  };
+
+  window.excluirAgente = function() {
+    if (!confirm('Excluir este agente permanentemente?')) return;
+    api('DELETE', '/api/v1/admin/corretores-llm/' + agenteId)
+      .then(function() { location.href = '/dashboard/agentes'; })
+      .catch(function(e) { alert('Erro ao excluir: ' + e.message); });
+  };
+
+  window.abrirModalTeste = function() {
+    var el = document.getElementById('modal-teste');
+    document.getElementById('teste-resultado').classList.add('d-none');
+    document.getElementById('teste-conteudo').innerHTML = '';
+    var modal = bootstrap.Modal.getInstance(el) || new bootstrap.Modal(el);
+    modal.show();
+  };
+
+  window.executarTeste = function() {
+    var texto = document.getElementById('teste-texto').value.trim();
+    var tema = document.getElementById('teste-tema').value.trim();
+    if (!texto || texto.length < 20) {
+      alert('Digite uma redação com pelo menos 20 caracteres.');
+      return;
+    }
+
+    var btn = document.getElementById('btn-executar-teste');
+    var spinner = document.getElementById('teste-spinner');
+    var resultadoDiv = document.getElementById('teste-resultado');
+    var conteudo = document.getElementById('teste-conteudo');
+
+    btn.disabled = true;
+    spinner.classList.remove('d-none');
+    resultadoDiv.classList.add('d-none');
+
+    api('POST', '/api/v1/admin/corretores-llm/' + agenteId + '/testar', {
+      texto: texto, tema: tema,
+    })
+      .then(function(data) {
+        var notas = data.notas || [];
+        var total = data.nota_total || 0;
+        var html = '<div class="alert alert-success small py-2 mb-3">✅ Teste concluído — Nota total: <strong>' + total + '/1000</strong></div>';
+        html += '<table class="table table-sm table-bordered small mb-0">';
+        html += '<thead><tr><th>Competência</th><th>Nota</th><th>Justificativa</th></tr></thead><tbody>';
+        var labels = ['C1 - Norma', 'C2 - Tema', 'C3 - Argumentação', 'C4 - Coesão', 'C5 - Intervenção'];
+        notas.forEach(function(n, i) {
+          html += '<tr><td class="fw-semibold">' + (labels[i] || 'C' + n.competencia) + '</td>';
+          html += '<td class="text-center">' + n.nota + '</td>';
+          html += '<td class="text-muted">' + esc(n.justificativa) + '</td></tr>';
+        });
+        html += '</tbody></table>';
+
+        if (data.anotacoes && data.anotacoes.length > 0) {
+          html += '<div class="mt-3 small"><strong>Anotações:</strong> ' +
+            data.anotacoes.map(function(a) {
+              return '<span class="badge bg-warning text-dark me-1">' + esc(a.tipo_erro) + '</span>';
+            }).join('') + '</div>';
+        }
+
+        conteudo.innerHTML = html;
+        resultadoDiv.classList.remove('d-none');
+
+        var btnContainer = document.getElementById('teste-prompt-btn-container');
+        if (data.prompt && data.prompt.sistema) {
+          ultimoPrompt = data.prompt;
+          ultimoAgente = data.agente || '';
+          ultimoModelo = data.modelo || '';
+          btnContainer.classList.remove('d-none');
+        } else {
+          btnContainer.classList.add('d-none');
+        }
+      })
+      .catch(function(e) {
+        conteudo.innerHTML = '<div class="alert alert-danger small py-2 mb-0">Erro: ' + e.message + '</div>';
+        resultadoDiv.classList.remove('d-none');
+      })
+      .finally(function() {
+        btn.disabled = false;
+        spinner.classList.add('d-none');
+      });
+  };
+
+  function esc(s) {
+    if (!s) return '';
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  window.usarExemplo = function() {
+    var exemplo = 'A educação é um direito fundamental garantido pela Constituição Federal de 1988. No entanto, o Brasil ainda enfrenta graves desafios nessa área, como a desigualdade de acesso, a baixa qualidade do ensino público e a evasão escolar. É necessário que o Estado, em parceria com a sociedade civil, implemente políticas públicas eficazes para reverter esse cenário.\n\nEm primeiro lugar, é importante destacar que a desigualdade educacional no Brasil está diretamente ligada às disparidades socioeconômicas. Alunos de escolas públicas, majoritariamente oriundos de famílias de baixa renda, têm acesso a uma infraestrutura precária e a professores mal remunerados. Essa realidade contrasta com a dos alunos de escolas particulares, que dispõem de melhores recursos e, consequentemente, alcançam melhores resultados em exames como o ENEM.\n\nAlém disso, a evasão escolar é um problema crônico que afeta principalmente os jovens do ensino médio. Muitos abandonam os estudos por necessidade de trabalhar e contribuir com a renda familiar. Sem qualificação profissional, esses jovens ficam à margem do mercado de trabalho formal, perpetuando o ciclo de pobreza e exclusão social.\n\nDiante desse cenário, faz-se necessária uma intervenção do poder público. O Ministério da Educação deve investir na melhoria da infraestrutura das escolas públicas e na capacitação dos professores. Ademais, é preciso criar programas de bolsa-permanência para que os jovens de baixa renda possam concluir seus estudos sem a necessidade de abandoná-los precocemente. Somente assim o Brasil poderá garantir uma educação de qualidade para todos e cumprir o que está previsto em sua Constituição.';
+    document.getElementById('teste-texto').value = exemplo;
+  };
+
+  window.abrirModalPromptCompleto = function() {
+    var el = document.getElementById('modal-prompt-completo');
+    document.getElementById('prompt-completo-agente').textContent = ultimoAgente;
+    document.getElementById('prompt-completo-modelo').textContent = ultimoModelo;
+    document.getElementById('prompt-completo-sistema').textContent = ultimoPrompt.sistema || '';
+    document.getElementById('prompt-completo-usuario').textContent = ultimoPrompt.usuario || '';
+    var modal = bootstrap.Modal.getInstance(el) || new bootstrap.Modal(el);
+    modal.show();
+  };
+
+  window.copiarTexto = function(selector) {
+    var el = document.querySelector(selector);
+    if (!el) return;
+    var texto = el.textContent;
+    if (!texto) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(texto).then(function() {
+        alert('Copiado!');
+      });
+    } else {
+      var ta = document.createElement('textarea');
+      ta.value = texto;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); alert('Copiado!'); } catch (ex) {}
+      document.body.removeChild(ta);
+    }
+  };
+
+  {% if agente.provedor_id %}
+  document.getElementById('btn-gerar-descricao').addEventListener('click', function() {
+    var btn = this;
+    var spinner = document.getElementById('descricao-spinner');
+    var status = document.getElementById('descricao-status');
+    var textarea = document.querySelector('textarea[name="descricao"]');
+
+    btn.disabled = true;
+    spinner.classList.remove('d-none');
+    status.classList.add('d-none');
+
+    fetch('/api/v1/admin/corretores-llm/' + agenteId + '/gerar-descricao', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': getCSRFToken() },
+    })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.descricao) {
+          textarea.value = data.descricao;
+          status.classList.remove('d-none');
+        } else if (data.erro) {
+          alert('Erro: ' + data.erro);
+        }
+      })
+      .catch(function(e) {
+        alert('Erro ao gerar resumo: ' + e.message);
+      })
+      .finally(function() {
+        btn.disabled = false;
+        spinner.classList.add('d-none');
+      });
+  });
+  {% endif %}
+
+  window.abrirModalPreview = function() {
+    var el = document.getElementById('modal-preview');
+    var loading = document.getElementById('preview-loading');
+    var resultado = document.getElementById('preview-resultado');
+
+    loading.classList.remove('d-none');
+    resultado.classList.add('d-none');
+
+    var modal = bootstrap.Modal.getInstance(el) || new bootstrap.Modal(el);
+    modal.show();
+
+    fetch('/api/v1/admin/corretores-llm/' + agenteId + '/preview-prompt', {
+      headers: { 'X-CSRFToken': getCSRFToken() },
+    })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        loading.classList.add('d-none');
+        resultado.classList.remove('d-none');
+
+        document.getElementById('preview-origem').textContent = data.origem || '-';
+        document.getElementById('preview-conteudo').textContent = data.completo || '(nenhum prompt configurado)';
+
+        var skillsDiv = document.getElementById('preview-skills');
+        var skillsContainer = document.getElementById('preview-skills-container');
+        skillsDiv.innerHTML = '';
+        if (data.skills && data.skills.length > 0) {
+          data.skills.forEach(function(s) {
+            var desc = s.descricao ? s.descricao : '';
+            skillsDiv.innerHTML +=
+              '<span class="badge bg-primary-subtle text-primary-emphasis px-3 py-2 preview-badge" ' +
+              'title="' + esc(desc) + '">' +
+              esc(s.nome) +
+              '</span>';
+          });
+          skillsContainer.classList.remove('d-none');
+        } else {
+          skillsContainer.classList.add('d-none');
+        }
+
+        var ferrDiv = document.getElementById('preview-ferramentas');
+        var ferrContainer = document.getElementById('preview-ferramentas-container');
+        ferrDiv.innerHTML = '';
+        if (data.ferramentas && data.ferramentas.length > 0) {
+          data.ferramentas.forEach(function(f) {
+            var desc = f.descricao ? f.descricao : '';
+            ferrDiv.innerHTML +=
+              '<span class="badge bg-secondary-subtle text-secondary-emphasis px-3 py-2 preview-badge" ' +
+              'title="' + esc(desc) + '">' +
+              esc(f.nome) +
+              '</span>';
+          });
+          ferrContainer.classList.remove('d-none');
+        } else {
+          ferrContainer.classList.add('d-none');
+        }
+      })
+      .catch(function(e) {
+        loading.classList.add('d-none');
+        resultado.classList.remove('d-none');
+        document.getElementById('preview-origem').textContent = 'Erro';
+        document.getElementById('preview-conteudo').textContent = 'Erro ao carregar: ' + e.message;
+        document.getElementById('preview-skills-container').classList.add('d-none');
+        document.getElementById('preview-ferramentas-container').classList.add('d-none');
+      });
+  };
+
+  window.copiarPreview = function() {
+    var texto = document.getElementById('preview-conteudo').textContent;
+    if (!texto) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(texto).then(function() {
+        alert('Prompt copiado!');
+      });
+    } else {
+      var ta = document.createElement('textarea');
+      ta.value = texto;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); alert('Prompt copiado!'); } catch (ex) {}
+      document.body.removeChild(ta);
+    }
+  };
+})();
+
+(function() {
+  var provedorSelect = document.querySelector('select[name="provedor"]');
+  var modeloSelect = document.getElementById('modelo-select');
+  var modeloSalvo = '{{ agente.modelo|escapejs }}';
+
+  function csrfToken() {
+    var c = document.cookie.split(';');
+    for (var i = 0; i < c.length; i++) {
+      var v = c[i].trim();
+      if (v.startsWith('csrftoken=')) return v.substring(10);
+    }
+    return '';
+  }
+
+  function popularModelos() {
+    var pid = provedorSelect.value;
+    if (!pid) {
+      modeloSelect.innerHTML = '<option value="">— Selecione um provedor primeiro —</option>';
+      return;
+    }
+    modeloSelect.innerHTML = '<option value="">Carregando modelos…</option>';
+    modeloSelect.disabled = true;
+
+    fetch('/api/v1/admin/provedores/' + pid + '/testar', {
+      method: 'POST',
+      headers: {'X-CSRFToken': csrfToken(), 'Content-Type': 'application/json'},
+    })
+    .then(function(r) { if (!r.ok) throw new Error(); return r.json(); })
+    .then(function(data) {
+      var modelos = data.modelos || [];
+      var html = '<option value="">— Selecione um modelo —</option>';
+      modelos.forEach(function(m) {
+        var sel = m === modeloSalvo ? ' selected' : '';
+        html += '<option value="' + m.replace(/"/g, '&quot;') + '"' + sel + '>' + m.replace(/</g, '&lt;') + '</option>';
+      });
+      modeloSelect.innerHTML = html;
+      modeloSelect.disabled = false;
+    })
+    .catch(function() {
+      modeloSelect.innerHTML = '<option value="">Erro ao carregar modelos</option>';
+      modeloSelect.disabled = false;
+    });
+  }
+
+  provedorSelect.addEventListener('change', popularModelos);
+  if (provedorSelect.value) popularModelos();
+})();
+</script>
+{% endblock %}

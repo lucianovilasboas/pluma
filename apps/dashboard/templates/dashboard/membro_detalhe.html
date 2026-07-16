@@ -1,0 +1,121 @@
+{% extends "dashboard/base.html" %}
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Home</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'bancas' %}">Bancas de Correção</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'banca-detalhe' banca.id %}">{{ banca.nome }}</a></li>
+    <li class="breadcrumb-item active">
+      {% if membro.tipo == "llm" and membro.corretor_llm %}
+        {{ membro.corretor_llm.nome }}
+      {% elif membro.usuario %}
+        {{ membro.usuario.nome_exibicao }}
+      {% endif %}
+    </li>
+  </ol>
+</nav>
+
+<h2 class="h4 mb-1">
+  {% if membro.tipo == "llm" %}🤖{% else %}🧑{% endif %}
+  {% if membro.tipo == "llm" and membro.corretor_llm %}
+    {{ membro.corretor_llm.nome }}
+  {% elif membro.usuario %}
+    {{ membro.usuario.nome_exibicao }}
+  {% endif %}
+</h2>
+<p class="text-muted small mb-4">
+  Banca: <strong>{{ banca.nome }}</strong>
+  {% if membro.tipo == "llm" and membro.corretor_llm %}
+    · Modelo: <code>{{ membro.corretor_llm.modelo }}</code>
+    {% if membro.corretor_llm.provedor %}
+      · Provedor: {{ membro.corretor_llm.provedor.nome }}
+    {% endif %}
+  {% endif %}
+</p>
+
+{% if membro.tipo == "llm" and membro.corretor_llm and membro.corretor_llm.descricao %}
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body py-3">
+    <h6 class="small text-uppercase text-muted fw-semibold mb-2">Descrição original do modelo (referência)</h6>
+    <p class="small text-muted mb-0">{{ membro.corretor_llm.descricao }}</p>
+  </div>
+</div>
+{% endif %}
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-4">
+    <h6 class="small text-uppercase text-muted fw-semibold mb-3">Configurações do membro</h6>
+    <form method="post">
+      {% csrf_token %}
+      <div class="row g-3 mb-3">
+        <div class="col-12 col-md-4">
+          <label for="membro-peso" class="form-label small">Peso (ponderação)</label>
+          <input type="number" class="form-control" id="membro-peso" name="peso" min="0.1" step="0.1" value="{{ membro.peso|default:1.0 }}">
+          <div class="form-text">Peso na consolidação das notas. 1.0 = padrão</div>
+        </div>
+      </div>
+      <h6 class="small text-uppercase text-muted fw-semibold mb-2">Descrição para o aluno</h6>
+      <textarea name="descricao" class="form-control mb-3" rows="5"
+                placeholder="Descreva as habilidades, especialidades e foco de correção deste avaliador...">{{ membro.descricao|default:'' }}</textarea>
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Salvar</button>
+        <a href="{% url 'banca-detalhe' banca.id %}" class="btn btn-outline-secondary">Cancelar</a>
+        {% if membro.tipo == "llm" %}
+          <button type="button" class="btn btn-outline-secondary" id="btn-gerar-descricao"
+                  onclick="gerarDescricao()">
+            Gerar descrição com IA
+          </button>
+          <div id="descricao-spinner" class="spinner-border spinner-border-sm text-primary align-self-center d-none" role="status">
+            <span class="visually-hidden">Gerando...</span>
+          </div>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if membro.tipo == "llm" %}
+<script>
+function getCSRFToken() {
+  var cookies = document.cookie.split(';');
+  for (var i = 0; i < cookies.length; i++) {
+    var c = cookies[i].trim();
+    if (c.startsWith('csrftoken=')) return c.substring(10);
+  }
+  return '';
+}
+
+window.gerarDescricao = function() {
+  var btn = document.getElementById('btn-gerar-descricao');
+  var spinner = document.getElementById('descricao-spinner');
+  var textarea = document.querySelector('textarea[name="descricao"]');
+  var corretorId = '{{ membro.corretor_llm.id|default:"" }}';
+
+  btn.disabled = true;
+  spinner.classList.remove('d-none');
+
+  fetch('/api/v1/admin/corretores-llm/' + corretorId + '/gerar-descricao', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCSRFToken() },
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.descricao) {
+        textarea.value = data.descricao;
+      } else if (data.erro) {
+        alert('Erro: ' + data.erro);
+      }
+    })
+    .catch(function(e) {
+      alert('Erro ao gerar descrição: ' + e.message);
+    })
+    .finally(function() {
+      btn.disabled = false;
+      spinner.classList.add('d-none');
+    });
+};
+</script>
+{% endif %}
+{% endblock %}

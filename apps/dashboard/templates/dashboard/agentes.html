@@ -1,0 +1,244 @@
+{% extends "dashboard/base.html" %}
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Home</a></li>
+    <li class="breadcrumb-item active">Agentes de IA</li>
+  </ol>
+</nav>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="h4 mb-0">Agentes de IA</h2>
+  <div class="d-flex gap-2 align-items-center">
+    <a href="{% url 'agentes-prompts' %}" class="btn btn-outline-primary btn-sm">Templates de Prompt</a>
+    <input type="text" class="form-control form-control-sm" id="busca-agentes"
+           placeholder="&#x1F50D; Buscar por nome ou modelo..."
+           style="width:220px" oninput="filtrarAgentes()">
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0 align-middle" id="tabela-agentes">
+        <thead class="table-light">
+          <tr>
+            <th>Rating</th>
+            <th>Nome</th>
+            <th>Modelo</th>
+            <th>Provedor</th>
+            <th>Bancas</th>
+            <th style="width:1%"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in agentes %}
+            <tr class="agente-row" data-search="{{ a.nome|lower }} {{ a.modelo|lower }}">
+              <td>
+                {% if a.rating > 0 %}
+                  <span class="badge rounded-pill {% if a.rating >= 8 %}bg-success{% elif a.rating >= 5 %}bg-warning text-dark{% else %}bg-danger{% endif %} fs-6">
+                    {{ a.rating }}
+                  </span>
+                  {% if a.rating_atualizado_em %}
+                    <br><small class="text-muted" title="{{ a.rating_atualizado_em|date:'d/m/Y H:i' }}">{{ a.rating_atualizado_em|date:"d/m" }}</small>
+                  {% endif %}
+                {% else %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              </td>
+              <td>
+                <a href="{% url 'agente-detalhe' a.id %}" class="text-decoration-none fw-semibold">
+                  {{ a.nome }}
+                </a>
+                {% if a.descricao %}
+                  <div class="small text-muted text-truncate" style="max-width:300px">{{ a.descricao }}</div>
+                {% endif %}
+              </td>
+              <td><code>{{ a.modelo }}</code></td>
+              <td>{{ a.provedor.nome|default:a.provedor_str|default:"—" }}</td>
+              <td class="small">
+                {% for v in a.vinculos_pool.all %}
+                  <span class="badge bg-light text-dark d-inline-flex align-items-center gap-1 me-1 mb-1"
+                        data-vinculo-id="{{ v.id }}">
+                    <a href="{% url 'banca-detalhe' v.pool_id %}" class="text-decoration-none text-dark">
+                      {{ v.pool.nome }}
+                    </a>
+                    <button class="btn-close btn-close-sm"
+                            style="font-size:0.5rem"
+                            onclick="removerDaBanca('{{ v.id }}', '{{ v.pool.nome|escapejs }}', this)"
+                            title="Remover da banca {{ v.pool.nome }}"></button>
+                  </span>
+                {% empty %}
+                  <span class="text-muted">—</span>
+                {% endfor %}
+              </td>
+              <td class="text-nowrap">
+                <div class="d-flex gap-1">
+                  <button class="btn btn-sm btn-outline-success" title="Adicionar à banca"
+                          onclick="abrirModalBancas('{{ a.id }}', '{{ a.nome|escapejs }}')">
+                    +
+                  </button>
+                  <button class="btn btn-sm btn-outline-secondary" title="Duplicar"
+                          onclick="duplicarAgente('{{ a.id }}', '{{ a.nome|escapejs }}')">
+                    📋
+                  </button>
+                  <button class="btn btn-sm btn-outline-danger" title="Excluir"
+                          onclick="excluirAgente('{{ a.id }}', '{{ a.nome|escapejs }}', this)">
+                    🗑
+                  </button>
+                </div>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="5" class="text-center text-muted py-4">
+                Nenhum agente de IA cadastrado.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <div class="p-2 small text-muted text-end">
+        Ordenado por rating decrescente · 💡 Clique 👍/👎 no Debug para registrar feedback
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="mt-4 text-center">
+  <a href="{% url 'admin-corretor-add' %}" class="btn btn-primary">
+    + Novo Agente
+  </a>
+</div>
+
+<div class="modal fade" id="modal-bancas" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Adicionar à banca</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="small text-muted mb-2" id="modal-bancas-nome-agente"></p>
+        <select class="form-select" id="select-banca">
+          <option value="">Selecione uma banca...</option>
+          {% for p in pools %}
+            <option value="{{ p.id }}" data-pool-nome="{{ p.nome|escapejs }}">{{ p.nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary btn-sm" id="btn-confirmar-banca"
+                onclick="adicionarBanca()">Adicionar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+  var agenteIdBanca = null;
+
+  window.filtrarAgentes = function() {
+    var busca = document.getElementById('busca-agentes').value.toLowerCase();
+    document.querySelectorAll('.agente-row').forEach(function(row) {
+      var text = row.getAttribute('data-search') || '';
+      row.style.display = text.includes(busca) ? '' : 'none';
+    });
+  };
+
+  window.excluirAgente = async function(id, nome, btn) {
+    var ok = await excluirItem('/api/v1/admin/corretores-llm/' + id, nome, getCSRFToken());
+    if (ok) btn.closest('tr').remove();
+  };
+
+  window.duplicarAgente = function(id, nome) {
+    if (!confirm('Duplicar agente "' + nome + '"?')) return;
+    fetch('/api/v1/admin/corretores-llm/' + id + '/duplicar', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken()},
+      credentials: 'include'
+    })
+      .then(function(r) {
+        if (!r.ok) throw new Error('Erro ' + r.status);
+        mostrarToast('Agente "' + nome + '" duplicado com sucesso.');
+        location.reload();
+      })
+      .catch(function(e) {
+        mostrarToast(e.message, 'erro');
+      });
+  };
+
+  window.removerDaBanca = async function(vinculoId, nomeBanca, btn) {
+    if (!confirm('Remover da banca "' + nomeBanca + '"?')) return;
+    try {
+      var resp = await fetch('/api/v1/admin/pool-corretores/' + vinculoId, {
+        method: 'DELETE',
+        headers: {'X-CSRFToken': getCSRFToken()}
+      });
+      if (!resp.ok) {
+        var err = await resp.json().catch(function() { return {}; });
+        throw new Error(err.detalhe || err.erro || 'Erro ' + resp.status);
+      }
+      mostrarToast('Removido da banca "' + nomeBanca + '".');
+      btn.closest('.badge').remove();
+    } catch(e) {
+      mostrarToast(e.message, 'erro');
+    }
+  };
+
+  window.abrirModalBancas = function(agenteId, nome) {
+    agenteIdBanca = agenteId;
+    document.getElementById('modal-bancas-nome-agente').textContent = nome;
+    document.getElementById('select-banca').value = '';
+    document.getElementById('btn-confirmar-banca').disabled = true;
+
+    var select = document.getElementById('select-banca');
+    select.onchange = function() {
+      document.getElementById('btn-confirmar-banca').disabled = !this.value;
+    };
+
+    var modal = bootstrap.Modal.getInstance(document.getElementById('modal-bancas'))
+                || new bootstrap.Modal(document.getElementById('modal-bancas'));
+    modal.show();
+  };
+
+  window.adicionarBanca = function() {
+    var select = document.getElementById('select-banca');
+    var poolId = select.value;
+    var nomeBanca = select.options[select.selectedIndex].getAttribute('data-pool-nome');
+    if (!poolId || !agenteIdBanca) return;
+
+    var btn = document.getElementById('btn-confirmar-banca');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+    fetch('/api/v1/admin/pool-corretores', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken()},
+      body: JSON.stringify({
+        pool: poolId,
+        tipo: 'llm',
+        corretor_llm: agenteIdBanca,
+        peso: 1.0,
+        ordem: 99
+      })
+    })
+      .then(function(r) {
+        if (!r.ok) return r.json().then(function(err) { throw new Error(err.detalhe || err.erro || 'Erro ' + r.status); });
+        var modal = bootstrap.Modal.getInstance(document.getElementById('modal-bancas'));
+        modal.hide();
+        mostrarToast('Adicionado à banca "' + nomeBanca + '".');
+        setTimeout(function() { location.reload(); }, 800);
+      })
+      .catch(function(e) {
+        mostrarToast(e.message, 'erro');
+        btn.disabled = false;
+        btn.textContent = 'Adicionar';
+      });
+  };
+})();
+</script>
+{% endblock %}

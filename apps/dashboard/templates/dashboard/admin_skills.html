@@ -1,0 +1,106 @@
+{% extends "dashboard/base.html" %}
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Home</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'agentes' %}">Agentes de IA</a></li>
+    <li class="breadcrumb-item active">Skills</li>
+  </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="h4 mb-0">Skills</h2>
+  <div class="d-flex gap-2 align-items-center">
+    <input type="text" class="form-control form-control-sm" id="busca-skills"
+           placeholder="Buscar..." style="width:200px" oninput="filtrarSkills()">
+    <a href="{% url 'admin-skill-novo' %}" class="btn btn-primary btn-sm">+ Nova skill</a>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0 align-middle" id="tabela-skills">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-4">Nome</th>
+            <th>Descricao</th>
+            <th>Competencias</th>
+            <th class="pe-4 text-end" style="width:120px">Acoes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in skills %}
+            <tr class="skill-row" data-search="{{ s.nome|lower }} {{ s.descricao|default:''|lower }}">
+              <td class="ps-4">
+                <span class="fw-semibold">
+                  {% if s.icone %}{{ s.icone }} {% endif %}{{ s.nome }}
+                </span>
+              </td>
+              <td class="small text-muted text-truncate" style="max-width:300px">
+                {{ s.descricao|default:"—" }}
+              </td>
+              <td class="small text-muted">
+                {% if s.competencias %}
+                  {% for c in s.competencias %}
+                    <span class="badge bg-light text-dark me-1">{{ c }}</span>
+                  {% endfor %}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td class="pe-4 text-end text-nowrap">
+                <div class="d-flex gap-2 justify-content-end">
+                  <a href="{% url 'admin-skill-editar' s.id %}"
+                     class="btn btn-sm btn-outline-secondary px-3">Editar</a>
+                  <button class="btn btn-sm btn-outline-danger px-3"
+                          onclick="excluirSkill('{{ s.id }}', '{{ s.nome|escapejs }}')">Excluir</button>
+                </div>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="4" class="text-center text-muted py-4">
+                Nenhuma skill cadastrada.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+  function getCSRFToken() {
+    var cookies = document.cookie.split(';');
+    for (var i = 0; i < cookies.length; i++) {
+      var c = cookies[i].trim();
+      if (c.startsWith('csrftoken=')) return c.substring(10);
+    }
+    return '';
+  }
+
+  window.filtrarSkills = function() {
+    var busca = document.getElementById('busca-skills').value.toLowerCase();
+    document.querySelectorAll('.skill-row').forEach(function(row) {
+      var text = row.getAttribute('data-search') || '';
+      row.style.display = text.includes(busca) ? '' : 'none';
+    });
+  };
+
+  window.excluirSkill = function(id, nome) {
+    if (!confirm('Excluir skill "' + nome + '" permanentemente?')) return;
+    fetch('/api/v1/admin/skills/' + id, {
+      method: 'DELETE',
+      headers: { 'X-CSRFToken': getCSRFToken() },
+    })
+      .then(function() { location.reload(); })
+      .catch(function(e) { alert('Erro ao excluir: ' + e.message); });
+  };
+})();
+</script>
+{% endblock %}

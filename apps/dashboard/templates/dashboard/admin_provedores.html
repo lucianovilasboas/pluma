@@ -1,0 +1,124 @@
+{% extends "dashboard/base.html" %}
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Home</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'dashboard-configuracoes' %}">Configurações</a></li>
+    <li class="breadcrumb-item active">Provedores LLM</li>
+  </ol>
+</nav>
+<div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-4">
+  <div>
+    <h2 class="h4 mb-1">Provedores LLM</h2>
+    <p class="text-muted small mb-0">Gerencie os provedores de inteligência artificial</p>
+  </div>
+  <a href="/dashboard/configuracoes/provedores/adicionar" class="btn btn-primary">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-1" viewBox="0 0 16 16"><path d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2"/></svg>
+    Novo Provedor
+  </a>
+</div>
+
+{% if provedores %}
+<div class="row g-3">
+  {% for p in provedores %}
+  <div class="col-12 col-md-6 col-xl-4">
+    <div class="card h-100 border-0 shadow-sm">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+          <div class="d-flex align-items-center gap-2">
+            <div class="d-flex align-items-center justify-content-center rounded-2"
+                 style="width:40px;height:40px;background:#f0fdfa;color:#14b8a6;font-weight:700;font-size:1rem;">
+              {{ p.nome|first|upper }}
+            </div>
+            <div>
+              <h6 class="mb-0 fw-semibold">{{ p.nome }}</h6>
+              <span class="small text-muted">{{ p.base_url|default:"api.openai.com" }}</span>
+            </div>
+          </div>
+          {% if p.ativo %}
+            <span class="badge bg-success-subtle text-success-emphasis rounded-pill">Ativo</span>
+          {% else %}
+            <span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill">Inativo</span>
+          {% endif %}
+        </div>
+
+        <div class="d-flex align-items-center gap-2 mb-3 p-2 bg-light rounded-2">
+          <code class="small flex-grow-1 mb-0" style="font-size:0.8rem;word-break:break-all;">{{ p.api_key_mascarada }}</code>
+          <span class="badge bg-info-subtle text-info-emphasis rounded-pill flex-shrink-0">
+            {{ p.total_corretores }} corretor{{ p.total_corretores|pluralize:"es" }}
+          </span>
+        </div>
+
+         <div class="d-flex gap-2">
+           <a href="/dashboard/configuracoes/provedores/{{ p.id }}/editar" class="btn btn-outline-primary btn-sm flex-fill">
+             Editar
+           </a>
+           <button class="btn btn-outline-info btn-sm flex-fill" onclick="testarConexao('{{ p.id }}', this)">
+             Testar
+           </button>
+           <button class="btn btn-outline-danger btn-sm flex-fill"
+                   onclick="excluirProvedor('{{ p.id }}', '{{ p.nome|escapejs }}', this)">Excluir</button>
+         </div>
+
+        <div id="teste-resultado-{{ p.id }}" class="mt-2" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card border-0 shadow-sm">
+  <div class="card-body text-center py-5">
+    <div class="mb-3" style="font-size:3rem;color:#cbd5e1;">
+      <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" viewBox="0 0 16 16"><path d="M11.251.068a.5.5 0 0 1 .227.58L9.677 6.5H13a.5.5 0 0 1 .364.843l-8 8.5a.5.5 0 0 1-.842-.49L6.323 9.5H3a.5.5 0 0 1-.364-.843l8-8.5a.5.5 0 0 1 .615-.09z"/></svg>
+    </div>
+    <h5 class="text-muted mb-1">Nenhum provedor cadastrado</h5>
+    <p class="text-muted small mb-3">Adicione provedores como OpenAI, DeepSeek ou Groq para começar.</p>
+    <a href="/dashboard/configuracoes/provedores/adicionar" class="btn btn-primary btn-sm">+ Novo Provedor</a>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+window.excluirProvedor = async function(id, nome, btn) {
+  var ok = await excluirItem('/api/v1/admin/provedores/' + id, nome, getCSRFToken());
+  if (ok) btn.closest('.col-12').remove();
+};
+
+async function testarConexao(provedorId, btn) {
+  var div = document.getElementById('teste-resultado-' + provedorId);
+  var originalText = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Testando...';
+  div.style.display = 'block';
+  div.className = 'mt-2';
+  div.innerHTML = '<div class="alert alert-info py-2 small mb-0 d-flex align-items-center gap-2"><span class="spinner-border spinner-border-sm"></span> Testando conexão...</div>';
+
+  try {
+    const resp = await fetch('/api/v1/admin/provedores/' + provedorId + '/testar', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': getCSRFToken() },
+    });
+    const data = await resp.json();
+    if (data.status === 'ok') {
+      const models = data.modelos;
+      const preview = models.slice(0, 5);
+      const extra = models.length > 5 ? `<span class="text-muted"> ...e mais ${models.length - 5}</span>` : '';
+      div.innerHTML = `<div class="alert alert-success py-2 small mb-0">
+        <strong class="d-block mb-1">✅ Conexão OK — ${models.length} modelo${models.length > 1 ? 's' : ''} disponível${models.length > 1 ? 'is' : ''}</strong>
+        <span class="text-muted">${preview.join(', ')}</span>${extra}
+      </div>`;
+    } else {
+      div.innerHTML = `<div class="alert alert-danger py-2 small mb-0">❌ Erro: ${data.detalhe}</div>`;
+    }
+  } catch (e) {
+    div.innerHTML = `<div class="alert alert-danger py-2 small mb-0">❌ Erro de conexão: ${e.message}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalText;
+  }
+}
+</script>
+{% endblock %}

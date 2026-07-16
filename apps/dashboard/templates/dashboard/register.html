@@ -1,0 +1,299 @@
+{% extends "dashboard/base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-7 col-lg-6">
+    <div class="card shadow-sm border-0">
+      <div class="card-body p-4">
+        <h1 class="h4 mb-3">
+          Criar conta
+          {% if tipo == "aluno" %}&mdash; Aluno{% elif tipo == "professor" %}&mdash; Professor{% else %}&mdash; Corretor{% endif %}
+        </h1>
+        <form method="post" novalidate>
+          {% csrf_token %}
+          {% if form.non_field_errors %}
+          <div class="alert alert-danger py-2 small">
+            {% for error in form.non_field_errors %}
+              {{ error }}
+            {% endfor %}
+          </div>
+          {% endif %}
+
+          <div class="mb-3">
+            <label class="form-label">{{ form.nome.label }}</label>
+            {{ form.nome }}
+            {% if form.nome.errors %}
+            <div class="invalid-feedback d-block">
+              {% for error in form.nome.errors %}{{ error }}{% endfor %}
+            </div>
+            {% endif %}
+          </div>
+          <div class="mb-3">
+            <label class="form-label">{{ form.email.label }}</label>
+            {{ form.email }}
+            {% if form.email.errors %}
+            <div class="invalid-feedback d-block">
+              {% for error in form.email.errors %}{{ error }}{% endfor %}
+            </div>
+            {% endif %}
+            <div class="invalid-feedback" id="email-feedback"></div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">{{ form.senha.label }}</label>
+            {{ form.senha }}
+            {% if form.senha.errors %}
+            <div class="invalid-feedback d-block">
+              {% for error in form.senha.errors %}{{ error }}{% endfor %}
+            </div>
+            {% endif %}
+            <div class="invalid-feedback" id="senha-feedback"></div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">{{ form.senha_confirmacao.label }}</label>
+            {{ form.senha_confirmacao }}
+            {% if form.senha_confirmacao.errors %}
+            <div class="invalid-feedback d-block">
+              {% for error in form.senha_confirmacao.errors %}{{ error }}{% endfor %}
+            </div>
+            {% endif %}
+            <div class="invalid-feedback" id="senha-confirmacao-feedback"></div>
+          </div>
+
+          {% if tipo == "aluno" or tipo == "professor" %}
+          <hr>
+          <h2 class="h6 mb-3">Dados da Escola <span class="text-muted fw-normal">(opcional)</span></h2>
+
+          <div class="mb-3 position-relative">
+            <label class="form-label">{{ form.escola_nome.label }}</label>
+            {{ form.escola_nome }}
+            <ul class="list-group position-absolute w-100 shadow-sm" id="escola-dropdown" style="z-index:1050;max-height:200px;overflow-y:auto;display:none"></ul>
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-md-4">
+              <label class="form-label">{{ form.escola_uf.label }}</label>
+              {{ form.escola_uf }}
+            </div>
+            <div class="col-md-8 position-relative">
+              <label class="form-label">{{ form.escola_municipio.label }}</label>
+              {{ form.escola_municipio }}
+              <ul class="list-group position-absolute w-100 shadow-sm" id="municipio-dropdown" style="z-index:1050;max-height:200px;overflow-y:auto;display:none"></ul>
+            </div>
+          </div>
+          {% endif %}
+
+          {% if tipo == "aluno" %}
+          <hr>
+          <h2 class="h6 mb-3">Turma <span class="text-muted fw-normal">(opcional)</span></h2>
+          <div class="row g-2 mb-3">
+            <div class="col-md-4 position-relative">
+              <label class="form-label">{{ form.turma_ano.label }}</label>
+              {{ form.turma_ano }}
+              <ul class="list-group position-absolute w-100 shadow-sm turma-sugestao-dropdown" data-campo="ano" style="z-index:1050;max-height:160px;overflow-y:auto;display:none"></ul>
+            </div>
+            <div class="col-md-4 position-relative">
+              <label class="form-label">{{ form.turma_identificador.label }}</label>
+              {{ form.turma_identificador }}
+              <ul class="list-group position-absolute w-100 shadow-sm turma-sugestao-dropdown" data-campo="identificador" style="z-index:1050;max-height:160px;overflow-y:auto;display:none"></ul>
+            </div>
+            <div class="col-md-4 position-relative">
+              <label class="form-label">{{ form.turma_curso.label }}</label>
+              {{ form.turma_curso }}
+              <ul class="list-group position-absolute w-100 shadow-sm turma-sugestao-dropdown" data-campo="curso" style="z-index:1050;max-height:160px;overflow-y:auto;display:none"></ul>
+            </div>
+          </div>
+          {% endif %}
+
+          <button class="btn btn-primary w-100" type="submit">Criar conta</button>
+        </form>
+        <p class="text-muted small mt-3 mb-0">
+          Já possui conta? <a href="/login">Entrar</a>
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var escolaInput = document.getElementById("{{ form.escola_nome.id_for_label }}");
+  var escolaDropdown = document.getElementById("escola-dropdown");
+  var municipioInput = document.getElementById("{{ form.escola_municipio.id_for_label }}");
+  var municipioDropdown = document.getElementById("municipio-dropdown");
+  var ufSelect = document.getElementById("{{ form.escola_uf.id_for_label }}");
+
+  var selectedEscolaId = null;
+  var municipiosCache = [];
+  var debounceTimer;
+
+  {% if tipo == "aluno" or tipo == "professor" %}
+  if (escolaInput && escolaDropdown) {
+    escolaInput.addEventListener("input", function() {
+      clearTimeout(debounceTimer);
+      var q = this.value.trim();
+      if (q.length < 2) { escolaDropdown.style.display = "none"; return; }
+      debounceTimer = setTimeout(function() {
+        fetch("/api/v1/auth/escolas?q=" + encodeURIComponent(q))
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            escolaDropdown.innerHTML = "";
+            if (data.length === 0) {
+              var li = document.createElement("li");
+              li.className = "list-group-item small text-muted";
+              li.textContent = "Nenhuma escola encontrada. Digite o nome completo.";
+              escolaDropdown.appendChild(li);
+            } else {
+              data.forEach(function(escola) {
+                var li = document.createElement("li");
+                li.className = "list-group-item list-group-item-action py-1 px-3";
+                li.style.cursor = "pointer";
+                var label = escola.nome;
+                if (escola.municipio) label += " (" + escola.municipio + "/" + escola.uf + ")";
+                li.textContent = label;
+                li.addEventListener("click", function() {
+                  escolaInput.value = escola.nome;
+                  selectedEscolaId = escola.id;
+                  if (municipioInput && escola.municipio) municipioInput.value = escola.municipio;
+                  if (ufSelect && escola.uf) {
+                    ufSelect.value = escola.uf;
+                    ufSelect.dispatchEvent(new Event("change"));
+                  }
+                  escolaDropdown.style.display = "none";
+                });
+                escolaDropdown.appendChild(li);
+              });
+            }
+            escolaDropdown.style.display = "block";
+          });
+      }, 300);
+    });
+
+    escolaInput.addEventListener("blur", function() {
+      if (!selectedEscolaId || escolaInput.value.trim() !== this._selectedNome) {
+        selectedEscolaId = null;
+      }
+    });
+
+    document.addEventListener("click", function(e) {
+      if (escolaInput && !escolaInput.parentNode.contains(e.target)) {
+        escolaDropdown.style.display = "none";
+      }
+    });
+  }
+
+  if (ufSelect) {
+    ufSelect.addEventListener("change", function() {
+      var uf = this.value;
+      municipiosCache = [];
+      if (!uf) return;
+      fetch("/api/v1/auth/municipios?uf=" + encodeURIComponent(uf))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          municipiosCache = data;
+        });
+    });
+  }
+
+  if (municipioInput && municipioDropdown) {
+    var mDebounce;
+    municipioInput.addEventListener("input", function() {
+      clearTimeout(mDebounce);
+      var q = this.value.trim().toLowerCase();
+      if (q.length < 2 || municipiosCache.length === 0) {
+        municipioDropdown.style.display = "none";
+        return;
+      }
+      mDebounce = setTimeout(function() {
+        var matches = municipiosCache.filter(function(n) { return n.toLowerCase().indexOf(q) === 0; }).slice(0, 10);
+        municipioDropdown.innerHTML = "";
+        if (matches.length === 0) {
+          var li = document.createElement("li");
+          li.className = "list-group-item small text-muted";
+          li.textContent = "Nenhum município encontrado.";
+          municipioDropdown.appendChild(li);
+        } else {
+          matches.forEach(function(nome) {
+            var li = document.createElement("li");
+            li.className = "list-group-item list-group-item-action py-1 px-3";
+            li.style.cursor = "pointer";
+            li.textContent = nome;
+            li.addEventListener("click", function() {
+              municipioInput.value = nome;
+              municipioDropdown.style.display = "none";
+            });
+            municipioDropdown.appendChild(li);
+          });
+        }
+        municipioDropdown.style.display = "block";
+      }, 200);
+    });
+
+    document.addEventListener("click", function(e) {
+      if (municipioInput && !municipioInput.parentNode.contains(e.target)) {
+        municipioDropdown.style.display = "none";
+      }
+    });
+  }
+  {% endif %}
+
+  {% if tipo == "aluno" %}
+  var turmaDropdowns = document.querySelectorAll(".turma-sugestao-dropdown");
+  turmaDropdowns.forEach(function(dropdown) {
+    var campo = dropdown.getAttribute("data-campo");
+    var input = dropdown.parentNode.querySelector("input");
+
+    if (!input) return;
+
+    input.addEventListener("input", function() {
+      clearTimeout(debounceTimer);
+      var q = this.value.trim();
+      if (q.length < 1) { dropdown.style.display = "none"; return; }
+      var self = this;
+      debounceTimer = setTimeout(function() {
+        var url = "/api/v1/auth/turmas/sugestoes?campo=" + campo + "&q=" + encodeURIComponent(q);
+        if (selectedEscolaId) url += "&escola_id=" + encodeURIComponent(selectedEscolaId);
+        fetch(url)
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            dropdown.innerHTML = "";
+            if (data.length === 0) {
+              var li = document.createElement("li");
+              li.className = "list-group-item small text-muted";
+              li.textContent = "Nenhuma sugestão. Digite um novo valor.";
+              dropdown.appendChild(li);
+            } else {
+              data.forEach(function(valor) {
+                var li = document.createElement("li");
+                li.className = "list-group-item list-group-item-action py-1 px-3";
+                li.style.cursor = "pointer";
+                li.textContent = valor;
+                li.addEventListener("click", function() {
+                  self.value = valor;
+                  dropdown.style.display = "none";
+                });
+                dropdown.appendChild(li);
+              });
+            }
+            dropdown.style.display = "block";
+          });
+      }, 300);
+    });
+  });
+
+  document.addEventListener("click", function(e) {
+    turmaDropdowns.forEach(function(dd) {
+      if (dd.parentNode && !dd.parentNode.contains(e.target)) {
+        dd.style.display = "none";
+      }
+    });
+  });
+  {% endif %}
+})();
+</script>
+{% load static %}
+<script src="{% static 'dashboard/js/registro.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  if (window.RegistroApp) RegistroApp.init();
+});
+</script>
+{% endblock %}
