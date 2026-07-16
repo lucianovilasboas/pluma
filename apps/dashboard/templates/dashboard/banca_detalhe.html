@@ -343,15 +343,6 @@
           <div class="form-text">Agente LLM que atua como juiz quando há divergência entre corretores.</div>
         </div>
         <div class="mb-3">
-          <label for="revisor-limiar" class="form-label">Limiar de desvio</label>
-          <div class="input-group">
-            <input type="number" class="form-control" id="revisor-limiar" min="0" step="1"
-                   value="{{ banca.limiar_desvio|floatformat:'0' }}">
-            <span class="input-group-text">pontos</span>
-          </div>
-          <div class="form-text">Desvio padrão máximo por competência. Acima deste valor, o revisor é acionado.</div>
-        </div>
-        <div class="mb-3">
           <label for="revisor-metodo" class="form-label">Método de consenso</label>
           <select class="form-select" id="revisor-metodo">
             <option value="mediana" {% if banca.metodo == 'mediana' %}selected{% endif %}>Mediana</option>
@@ -556,6 +547,7 @@
   window.abrirModalRevisor = function() {
     var el = document.getElementById('modal-revisor');
     var modal = bootstrap.Modal.getInstance(el) || new bootstrap.Modal(el);
+    if (window.atualizarCamposRegra) window.atualizarCamposRegra();
     modal.show();
   };
 

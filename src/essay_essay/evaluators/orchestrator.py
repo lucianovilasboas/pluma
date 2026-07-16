@@ -40,7 +40,7 @@ class PromptTemplateProvider(ProvedorPrompt):
     ferramentas_bloco: str = field(default="")
     contexto_subagentes: str = field(default="")
 
-    def sistema(self, conhecimento: str, protocolo: str = "") -> str:
+    def sistema(self, conhecimento: str, protocolo: str = "", output_json: bool = True) -> str:
         base = self.sistema_prompt
         if self.skills_bloco:
             base += self.skills_bloco
@@ -52,7 +52,7 @@ class PromptTemplateProvider(ProvedorPrompt):
             base += f"\n\nPROTOCOLO DE AVALIAÇÃO ENEM (OFICIAL):\n{protocolo}"
         if conhecimento:
             base += f"\n\nBASE DE CONHECIMENTO:\n{conhecimento}"
-        if self.formato_saida:
+        if self.formato_saida and output_json:
             base += f"\n\n{self.formato_saida}"
         return base
 
@@ -167,7 +167,7 @@ async def _executar_avaliador(
         "_executar_avaliador — modelo=%s, corretor_llm_id=%s, avaliador=%s",
         modelo, corretor_llm_id, prompt_provider.nome,
     )
-    sistema = prompt_provider.sistema(conhecimento, protocolo)
+    sistema = prompt_provider.sistema(conhecimento, protocolo, output_json=output_json)
     usuario = prompt_provider.usuario(redacao.texto, redacao.tema)
     if resultados_ferramentas:
         sistema += f"\n\n{resultados_ferramentas}"
