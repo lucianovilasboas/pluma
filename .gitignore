@@ -14,4 +14,4 @@ htmlcov/
 .pytest_cache/
 staticfiles/
 graphify-out/
-avaliacoes/
+/avaliacoes/

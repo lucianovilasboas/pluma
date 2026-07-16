@@ -332,16 +332,15 @@ def atualizar_consolidacao(
         return None
     avaliacoes_domain = avaliacoes_para_domain(avaliacoes)
 
-    usar_revisor = (
+    deve_chamar_revisor = (
         llm is not None
         and redacao_domain is not None
-        and pool.limiar_desvio > 0
-        and len(avaliacoes_domain) >= 2
+        and verificar_regra_revisor(pool, avaliacoes_domain)
     )
     usou_revisor = False
     parecer_revisor = ""
 
-    if usar_revisor:
+    if deve_chamar_revisor:
         consolidada = async_to_sync(avaliar_com_revisor)(
             llm,
             redacao_domain,
@@ -350,18 +349,14 @@ def atualizar_consolidacao(
             limiar=pool.limiar_desvio,
             sistema_prompt=sistema_prompt,
         )
-        max_desvio = max(consolidada.desvios.values()) if consolidada.desvios else 0.0
-        if max_desvio > pool.limiar_desvio:
-            notas = consolidada.notas
-            usou_revisor = True
-            parecer_revisor = (
-                f"Revisor acionado — desvio máximo {max_desvio:.1f} "
-                f"excede limiar {pool.limiar_desvio:.1f}. "
-                f"As avaliações dos {len(avaliacoes_domain)} corretores "
-                f"foram analisadas criticamente."
-            )
-        else:
-            notas = consolidada.notas
+        notas = consolidada.notas
+        usou_revisor = True
+        regra_nome = dict(PoolCorrecao.REGRA_REVISOR_CHOICES).get(pool.regra_revisor, pool.regra_revisor)
+        parecer_revisor = (
+            f"Revisor acionado — regra '{regra_nome}' ativada. "
+            f"As avaliações dos {len(avaliacoes_domain)} corretores "
+            f"foram analisadas criticamente."
+        )
     else:
         pesos = {av.avaliador: 1.0 for av in avaliacoes_domain}
         notas = consolidar_notas(avaliacoes_domain, pesos=pesos, metodo=pool.metodo)
@@ -594,6 +589,81 @@ def _preparar_revisor_se_configurado(
     if not r.modelo or not r.provedor:
         return None, None, None
     return _criar_cliente_para_corretor(r), r.modelo, r.prompt_personalizado or None
+
+
+def _mediana_por_competencia(
+    avaliacoes: list[AvaliacaoDomain],
+) -> tuple[list[NotaCompetencia], dict[CompetenciaNome, float]]:
+    import statistics
+    competencias = list(CompetenciaNome)
+    notas_consolidadas = []
+    desvios: dict[CompetenciaNome, float] = {}
+    for comp in competencias:
+        vals_nota = sorted([av.notas_dict[comp].nota for av in avaliacoes])
+        med = statistics.median(vals_nota)
+        nota_ref = avaliacoes[0].notas_dict[comp]
+        notas_consolidadas.append(NotaCompetencia(
+            competencia=comp,
+            nota=int(med),
+            justificativa=nota_ref.justificativa,
+            sugestoes=nota_ref.sugestoes,
+        ))
+        if len(vals_nota) >= 2:
+            desvios[comp] = statistics.stdev(vals_nota)
+    return notas_consolidadas, desvios
+
+
+def verificar_regra_revisor(
+    pool: PoolCorrecao,
+    avaliacoes_domain: list[AvaliacaoDomain],
+) -> bool:
+    if len(avaliacoes_domain) < 2:
+        return False
+    regra = pool.regra_revisor
+    params = pool.parametros_revisor or {}
+    if regra == "desvio_padrao":
+        _, desvios = _mediana_por_competencia(avaliacoes_domain)
+        max_desvio = max(desvios.values()) if desvios else 0.0
+        return max_desvio > float(pool.limiar_desvio)
+    elif regra == "diferenca_enem":
+        return _verificar_regra_diferenca_enem(
+            avaliacoes_domain,
+            limiar_total=float(params.get("limiar_total", 100)),
+            limiar_competencia=float(params.get("limiar_competencia", 80)),
+        )
+    elif regra == "personalizada":
+        return _verificar_regra_personalizada(avaliacoes_domain, params)
+    return False
+
+
+def _verificar_regra_diferenca_enem(
+    avaliacoes: list[AvaliacaoDomain],
+    limiar_total: float = 100,
+    limiar_competencia: float = 80,
+) -> bool:
+    if len(avaliacoes) < 2:
+        return False
+    av1, av2 = avaliacoes[0], avaliacoes[1]
+    competencias = list(CompetenciaNome)
+    notas1 = av1.notas_dict
+    notas2 = av2.notas_dict
+    diff_total = abs(
+        sum(notas1[c].nota for c in competencias)
+        - sum(notas2[c].nota for c in competencias)
+    )
+    if diff_total > limiar_total:
+        return True
+    for c in competencias:
+        if abs(notas1[c].nota - notas2[c].nota) > limiar_competencia:
+            return True
+    return False
+
+
+def _verificar_regra_personalizada(
+    avaliacoes: list[AvaliacaoDomain],
+    params: dict,
+) -> bool:
+    return False
 
 
 def executar_avaliacao_llm(redacao_id: str, pool_id: str | None = None, modo: str = "um", corretor_ids: list[str] | None = None) -> None:

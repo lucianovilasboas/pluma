@@ -325,7 +325,22 @@ class PoolCorrecao(models.Model):
         blank=True,
         help_text="Modelo para o modo especialistas (ex: gpt-4o). Vazio = usa LLM_MODEL do .env",
     )
-    limiar_desvio = models.FloatField(default=20.0, help_text="Desvio padrão máximo por competência antes de acionar o revisor LLM")
+    limiar_desvio = models.FloatField(default=20.0, help_text="Desvio padrão máximo por competência antes de acionar o revisor LLM (usado apenas se regra_revisor='desvio_padrao')")
+    REGRA_REVISOR_CHOICES = (
+        ("desvio_padrao", "Desvio Padrão (comportamento atual)"),
+        ("diferenca_enem", "Diferença ENEM (total > 100 OU competência > 80)"),
+        ("personalizada", "Regra personalizada (via JSON)"),
+    )
+    regra_revisor = models.CharField(
+        max_length=30,
+        choices=REGRA_REVISOR_CHOICES,
+        default="desvio_padrao",
+        help_text="Regra que determina quando o revisor é chamado",
+    )
+    parametros_revisor = models.JSONField(
+        default=dict, blank=True,
+        help_text='Parâmetros da regra. Ex: {"limiar_total": 100, "limiar_competencia": 80}',
+    )
     revisor_corretor = models.ForeignKey(
         "CorretorLLM",
         on_delete=models.SET_NULL,
