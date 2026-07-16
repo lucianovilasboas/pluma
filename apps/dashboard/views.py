@@ -1649,6 +1649,8 @@ def bancas(request):
 
 @login_required
 def banca_detalhe(request, banca_id):
+    from apps.corretores.models import PoolCorrecao
+
     if request.user.user_type != UserType.ADMIN:
         messages.warning(request, "Apenas administradores acessam esta área.")
         return redirect("home")
@@ -1663,7 +1665,7 @@ def banca_detalhe(request, banca_id):
         return redirect("bancas")
 
     from apps.avaliacoes.models import Consolidacao
-    from apps.corretores.models import CorretorLLM, PoolCorrecao, ProvedorLLM
+    from apps.corretores.models import CorretorLLM, ProvedorLLM
 
     corretores_llm = CorretorLLM.objects.select_related("provedor").order_by("nome")
     provedores = ProvedorLLM.objects.filter(ativo=True).order_by("nome")

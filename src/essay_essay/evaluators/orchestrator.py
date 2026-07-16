@@ -245,7 +245,7 @@ async def avaliar_com_um(
                 "sim" if resultados_ferramentas else "não")
     if conhecimento is None:
         conhecimento = _carregar_conhecimento(conhecimento_dir)
-    if not protocolo:
+    if protocolo is None:
         protocolo = _carregar_protocolo(conhecimento_dir)
     if provider is None:
         raise ValueError(
