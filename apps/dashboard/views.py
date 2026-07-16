@@ -398,7 +398,10 @@ def detalhe_redacao(request, redacao_id: str):
         return redirect(url)
 
     if is_staff and redacao.usuario_id != request.user.id:
-        avaliacoes = Avaliacao.objects.filter(redacao=redacao, avaliador_usuario=request.user, rascunho=False).order_by("-criada_em")
+        if request.user.user_type in {UserType.ADMIN, UserType.PROFESSOR}:
+            avaliacoes = Avaliacao.objects.filter(redacao=redacao, rascunho=False).order_by("-criada_em")
+        else:
+            avaliacoes = Avaliacao.objects.filter(redacao=redacao, avaliador_usuario=request.user, rascunho=False).order_by("-criada_em")
     else:
         avaliacoes = Avaliacao.objects.filter(redacao=redacao, rascunho=False).order_by("-criada_em")
     consolidacao = redacao.consolidacoes.filter(status="final").select_related("pool__revisor_corretor").order_by("-atualizada_em").first()
