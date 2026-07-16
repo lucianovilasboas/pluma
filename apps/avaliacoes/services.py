@@ -417,6 +417,7 @@ def _montar_prompt_config(corretor) -> dict[str, str]:
         from apps.corretores.models import PromptTemplate
         tpl = PromptTemplate.objects.filter(tipo="base").order_by("criado_em").first()
         if tpl:
+            cfg["sistema_prompt"] = tpl.sistema_prompt
             cfg["formato_saida"] = tpl.formato_saida
     if corretor.prompt_personalizado:
         cfg["personalizado"] = corretor.prompt_personalizado

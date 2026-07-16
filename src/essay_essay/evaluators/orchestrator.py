@@ -245,7 +245,10 @@ async def avaliar_com_um(
     if not protocolo:
         protocolo = _carregar_protocolo(conhecimento_dir)
     if provider is None:
-        provider = AvaliadorDetalhado()
+        raise ValueError(
+            "Nenhum template de prompt configurado para este agente. "
+            "Crie um template no banco ou configure um prompt personalizado."
+        )
     av, anotacoes, sistema, usuario = await _executar_avaliador(
         llm, provider, conhecimento, redacao, modelo,
         resultados_ferramentas=resultados_ferramentas,
@@ -409,7 +412,12 @@ async def avaliar_com_pool(
                 ferramentas_bloco=str(prompt_config.get("ferramentas_bloco", "")),
             )
         else:
-            provider = AvaliadorDetalhado()
+            logger.error(
+                "avaliar_com_pool: corretor %s sem prompt_config — "
+                "pulando (crie um template ou prompt personalizado)",
+                cfg.get("avaliador", "desconhecido"),
+            )
+            continue
         corrotinas.append(
             _executar_avaliador(
                 client, provider, conhecimento, redacao, modelo,

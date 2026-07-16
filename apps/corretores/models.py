@@ -247,18 +247,11 @@ class CorretorLLM(models.Model):
             if base_tpl:
                 sistema = base_tpl.sistema_prompt
                 formato = base_tpl.formato_saida
-                origem = f"Fallback: {base_tpl.nome} (base)"
+                origem = f"{base_tpl.nome} (base)"
             else:
-                from essay_essay.prompts.templates import (
-                    AvaliadorDetalhado,
-                )
-
-                fallback = AvaliadorDetalhado()
-                sistema = fallback._base_sistema()
+                sistema = ""
                 formato = ""
-                origem = (
-                    "Fallback: AvaliadorDetalhado (padrão do sistema)"
-                )
+                origem = "Nenhum template configurado"
 
         skills_qs = self.skills.all()
         ferramentas_qs = self.ferramentas_ativas.all()

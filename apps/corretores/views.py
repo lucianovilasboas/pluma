@@ -246,7 +246,12 @@ class CorretorLLMViewSet(viewsets.ModelViewSet):
 
         from essay_essay.domain.models import Redacao as RedacaoDomain
         from essay_essay.evaluators.factory import criar_llm_client
-        from essay_essay.evaluators.orchestrator import avaliar_com_um
+        from essay_essay.evaluators.orchestrator import (
+            PromptTemplateProvider,
+            _carregar_protocolo,
+            avaliar_com_um,
+        )
+        from apps.avaliacoes.services import _montar_prompt_config
 
         api_key = obter_api_key(corretor.provedor)
         cliente = criar_llm_client(
@@ -257,6 +262,22 @@ class CorretorLLMViewSet(viewsets.ModelViewSet):
         )
         redacao_domain = RedacaoDomain(texto=texto, tema=tema)
 
+        prompt_config = _montar_prompt_config(corretor)
+        if prompt_config:
+            sistema_prompt = str(prompt_config.get("sistema_prompt", ""))
+            formato_saida = str(prompt_config.get("formato_saida", ""))
+            if prompt_config.get("personalizado"):
+                sistema_prompt = str(prompt_config["personalizado"])
+            provider = PromptTemplateProvider(
+                nome=corretor.nome,
+                sistema_prompt=sistema_prompt,
+                formato_saida=formato_saida,
+                skills_bloco=str(prompt_config.get("skills_bloco", "")),
+                ferramentas_bloco=str(prompt_config.get("ferramentas_bloco", "")),
+            )
+        else:
+            provider = None
+
         try:
             av, anotacoes, sistema, usuario = asyncio.run(
                 avaliar_com_um(
@@ -264,6 +285,11 @@ class CorretorLLMViewSet(viewsets.ModelViewSet):
                     redacao_domain,
                     modelo=corretor.modelo,
                     conhecimento_dir="base_de_conhecimento",
+                    provider=provider,
+                    protocolo=(
+                        _carregar_protocolo("base_de_conhecimento")
+                        if corretor.incluir_protocolo_enem else ""
+                    ),
                 )
             )
             notas = [
