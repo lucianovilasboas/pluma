@@ -81,6 +81,21 @@ uv run pytest --cov=apps --cov=config --cov=src/essay_essay --cov-report=term-mi
 - **Lint/Typecheck:** Ruff line-length=100, select=E/F/I/N/W/UP, target py312 (base tem ~238 erros pré-existentes; foque só nos arquivos que você tocar). Mypy `strict=true` excluindo `tests/`.
 - **README.md desatualizado:** cita SQLite/`dados/*.db` (o backend é PostgreSQL em ambos os settings) e sugere rodar `qcluster` em dev. Ignore — confie em `pyproject.toml`, settings e compose.
 
+## Versionamento
+
+- **SemVer:** `MAJOR.minor.patch` — MAJOR quebra compatibilidade, MINOR adiciona funcionalidade, PATCH corrige bug.
+- **Fonte da verdade:** `version` no `pyproject.toml` (espelhado em git tag `vX.Y.Z` e CHANGELOG.md).
+- **Incrementar versão:** `uv run hatch version <patch|minor|major>` (atualiza `pyproject.toml` automaticamente).
+- **Conventional Commits obrigatório:** `feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `test:`.
+- **Fluxo de release:**
+  1. Mover entradas de `[Unreleased]` para `[X.Y.Z]` no `CHANGELOG.md`
+  2. `uv run hatch version patch|minor|major`
+  3. `git add pyproject.toml CHANGELOG.md`
+  4. `git commit -m "chore: release vX.Y.Z"`
+  5. `git tag -a vX.Y.Z -m "vX.Y.Z"`
+  6. `git push && git push --tags`
+  7. GitHub Actions (`.github/workflows/release.yml`) cria o Release automaticamente
+
 ## Telegram
 
 - **Chat ID:** `1627668730` (Luciano Espiridião) — configurado no Composio para notificações automáticas.

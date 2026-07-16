@@ -1,0 +1,34 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract release notes
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          awk -v tag="$TAG" '
+            BEGIN { found=0; printing=0 }
+            /^## \[/ {
+              if (printing) { exit }
+              if (index($0, "[" tag "]") > 0) { found=1; printing=1; next }
+            }
+            printing { print }
+          ' CHANGELOG.md > _release_notes.md
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: _release_notes.md
+          generate_release_notes: false
