@@ -12,6 +12,29 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 - Nesta seção entram as mudanças ainda não lançadas.
 - Ao fazer um release, mova as entradas para a versão correspondente.
 
+## [0.2.0] - 2026-07-16
+
+### Adicionado
+
+- Dashboard: professor e admin veem avaliações individuais das IAs na redação do aluno
+- Sistema de regras do revisor: desvio_padrão, diferença ENEM (total > 100 OU competência > 80) e personalizada
+- UI de configuração de regras na tela de detalhe da banca (select regra_revisor + parâmetros dinâmicos)
+- 3 novos arquivos de teste: 47+ testes para regras do revisor, dashboard professor, agente simplificado
+
+### Alterado
+
+- Tela de agente simplificada: skills e ferramentas removidas da UI, prompt + subagentes mantidos
+- Fallbacks hardcoded de template removidos — prompts sempre via banco de dados
+- Teste do agente agora respeita flags `incluir_base_conhecimento`, `incluir_protocolo_enem` e `output_json`
+- Revisor sempre chama o LLM quando a regra é ativada (sem dupla verificação de desvio)
+- `parecer_revisor` mais amigável: mostra qual regra foi violada, valores e limites
+- Modelo `PoolCorrecao`: novos campos `regra_revisor` e `parametros_revisor`
+- `output_json=False` não adiciona bloco de formato de saída no prompt
+- Labels "Tema:" → "Título:" nos templates, fallback padronizado para "—" quando vazio
+- Campos de nota (C1-C5) com step=40 nos formulários de correção
+- Mensagens de notificação sem "sobre ''" quando tema vazio
+- Foco do mouse não é mais roubado por JavaScript nas telas de correção
+
 ## [0.1.0] - 2026-07-15
 
 ### Adicionado
