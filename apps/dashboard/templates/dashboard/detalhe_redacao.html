@@ -21,7 +21,7 @@
   <div class="card-body">
     <div class="row g-3">
       <div class="col-12 col-md-6">
-        <strong>Tema:</strong> {{ redacao.tema }}
+        <strong>Título:</strong> {{ redacao.tema|default:"—" }}
         {% if redacao.tema_ref and redacao.tema_ref.texto %}
           <button class="btn btn-sm btn-link text-decoration-none p-0 ms-1 align-baseline"
                   onclick="this.nextElementSibling.classList.toggle('d-none')">

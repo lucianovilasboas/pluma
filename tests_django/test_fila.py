@@ -118,7 +118,7 @@ class TestFilaView:
         resp = c.get("/dashboard/fila")
         assert resp.status_code == 200
         html = resp.content.decode()
-        assert "redação sem título" in html
+        assert "—" in html
 
     def test_fila_banca_aparece_por_nome_nao_por_id(self):
         admin = _make_admin()

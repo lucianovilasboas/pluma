@@ -15,7 +15,7 @@
 
 <div class="card border-0 shadow-sm mb-3">
   <div class="card-body">
-    <strong>Tema:</strong> {{ redacao.tema }}
+    <strong>Título:</strong> {{ redacao.tema|default:"—" }}
     {% if redacao.tema_ref and redacao.tema_ref.texto %}
       <button class="btn btn-sm btn-link text-decoration-none p-0 ms-1 align-baseline" data-acao="toggle-tema-conteudo">
         📖 Ver tema completo

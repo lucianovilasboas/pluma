@@ -32,7 +32,7 @@
       <p class="mb-1 mt-2">{{ n.mensagem }}</p>
       {% if n.redacao %}
         <small class="text-muted">
-          Redação: <strong>{{ n.redacao.tema }}</strong>
+          Redação: <strong>{{ n.redacao.tema|default:"—" }}</strong>
         </small>
         {% if n.redacao.id %}
           <a href="{% url 'dashboard-detalhe-redacao' n.redacao.id %}" class="btn btn-sm btn-outline-primary ms-2">Ver redação</a>

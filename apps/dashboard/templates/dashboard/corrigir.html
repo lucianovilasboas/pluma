@@ -30,7 +30,7 @@
                 data-aluno="{{ redacao.usuario.nome_exibicao|escapejs }}"
               >
                 <div>
-                  <strong class="d-block small">{{ redacao.tema }}</strong>
+                  <strong class="d-block small">{{ redacao.tema|default:"—" }}</strong>
                   <small class="text-muted">{{ redacao.usuario.nome_exibicao }} — {{ redacao.criada_em|date:"d/m/Y H:i" }}</small>
                   {% if tem_rascunho %}
                     <span class="badge bg-warning-subtle text-warning-emphasis rounded-pill ms-1">Rascunho</span>

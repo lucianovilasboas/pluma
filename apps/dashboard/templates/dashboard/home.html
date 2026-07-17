@@ -70,7 +70,7 @@
         <tbody>
           {% for c in ultimas_correcoes %}
           <tr>
-            <td style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{ c.redacao.tema }}">{{ c.redacao.tema }}</td>
+            <td style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{ c.redacao.tema|default:'—' }}">{{ c.redacao.tema|default:"—" }}</td>
             <td style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{ c.redacao.usuario.nome_exibicao }}">{{ c.redacao.usuario.nome_exibicao }}</td>
             <td style="text-align:center;"><span class="badge text-bg-success px-3 py-1 fs-6 fw-bold">{{ c.nota_total }}</span></td>
             <td style="white-space:nowrap;">

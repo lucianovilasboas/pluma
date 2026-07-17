@@ -63,7 +63,7 @@
           <tr>
             <td class="text-muted">"{{ a.trecho_texto|truncatechars:40 }}"</td>
             <td><span class="badge rounded-pill small bg-info-subtle text-info-emphasis">{{ a.get_tipo_erro_display }}</span></td>
-            <td><a href="{% url 'dashboard-detalhe-redacao' a.avaliacao.redacao.id %}" class="text-decoration-none">{{ a.avaliacao.redacao.tema|truncatechars:30 }}</a></td>
+            <td><a href="{% url 'dashboard-detalhe-redacao' a.avaliacao.redacao.id %}" class="text-decoration-none">{{ a.avaliacao.redacao.tema|default:"—"|truncatechars:30 }}</a></td>
             <td class="text-muted">{{ a.criada_em|date:"d/m/Y" }}</td>
           </tr>
           {% endfor %}

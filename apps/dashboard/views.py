@@ -983,7 +983,7 @@ def fila(request):
     from apps.redacoes.models import Redacao
 
     def _tema_exibicao(r):
-        return r.tema or (r.tema_ref.titulo if r.tema_ref else "redação sem título")
+        return r.tema or (r.tema_ref.titulo if r.tema_ref else "—")
 
     def _detectar_tipo_task(func):
         if "consolidar" in func:
@@ -1078,7 +1078,7 @@ def fila(request):
 
         erro_items.append({
             "id": str(r.id),
-            "tema": r.tema or (r.tema_ref.titulo if r.tema_ref else "sem título"),
+            "tema": r.tema or (r.tema_ref.titulo if r.tema_ref else "—"),
             "pool_nome": pool.nome if pool else "Sem banca",
             "corretores": pool_corretores,
             "total": total,
@@ -1299,7 +1299,7 @@ def debug_lista(request):
         cons = Consolidacao.objects.filter(redacao=r).order_by("-atualizada_em").first()
         items.append({
             "id": str(r.id),
-            "tema": r.tema or (r.tema_ref.titulo if r.tema_ref else "sem título"),
+            "tema": r.tema or (r.tema_ref.titulo if r.tema_ref else "—"),
             "aluno": r.usuario.nome_exibicao if r.usuario else "?",
             "pool_nome": r.pool.nome if r.pool else "—",
             "status": r.status,
