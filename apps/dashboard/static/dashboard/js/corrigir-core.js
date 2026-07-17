@@ -425,6 +425,7 @@ window.CorrigirCore = (() => {
     }
 
     document.addEventListener('click', e => {
+      if (e.target.closest('input, textarea, select')) return;
       if (!e.target.closest('#annotation-palette, #redacao-texto')) fecharPaleta();
     });
 

@@ -131,7 +131,6 @@ window.CorrigirApp = (() => {
     }
 
     setTimeout(core.atualizarNotaTotal, 150);
-    setTimeout(() => { document.querySelector('#comp-1 input')?.focus(); }, 400);
 
     if (!document.getElementById('id_nome_avaliador').value) {
       document.getElementById('id_nome_avaliador').value =
