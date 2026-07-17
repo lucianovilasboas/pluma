@@ -441,7 +441,7 @@ class TestCenariosConsolidacao:
             redacao=redacao, pool=pool_llm_com_revisor, status="final",
             nota_total=400, quantidade_corretores=2,
             quantidade_esperada=2, usou_revisor_llm=True,
-            parecer_revisor="Revisor acionado — desvio max 141.4 excede limiar 20.0.",
+            parecer_revisor="O revisor analisou as correções e redefiniu a nota final após análise crítica.",
             metodo="mediana",
         )
         mock_llm = AsyncMock()
@@ -502,7 +502,7 @@ class TestCenariosConsolidacao:
             redacao=redacao, pool=pool_humano_com_revisor, status="final",
             nota_total=400, quantidade_corretores=2,
             quantidade_esperada=2, usou_revisor_llm=True,
-            parecer_revisor="Revisor acionado — desvio max 141.4 excede limiar 20.0.",
+            parecer_revisor="O revisor analisou as correções e redefiniu a nota final após análise crítica.",
             metodo="mediana",
         )
         mock_llm = AsyncMock()
@@ -595,7 +595,7 @@ class TestCenariosConsolidacao:
             redacao=redacao, pool=pool_misto_com_revisor, status="final",
             nota_total=400, quantidade_corretores=2,
             quantidade_esperada=2, usou_revisor_llm=True,
-            parecer_revisor="Revisor acionado — desvio max 141.4 excede limiar 20.0.",
+            parecer_revisor="O revisor analisou as correções e redefiniu a nota final após análise crítica.",
             metodo="mediana",
         )
         mock_llm = AsyncMock()

@@ -346,17 +346,52 @@ def atualizar_consolidacao(
             redacao_domain,
             avaliacoes_domain,
             modelo=modelo_revisor or "gpt-4o",
-            limiar=pool.limiar_desvio,
             sistema_prompt=sistema_prompt,
         )
         notas = consolidada.notas
         usou_revisor = True
-        regra_nome = dict(PoolCorrecao.REGRA_REVISOR_CHOICES).get(pool.regra_revisor, pool.regra_revisor)
-        parecer_revisor = (
-            f"Revisor acionado — regra '{regra_nome}' ativada. "
-            f"As avaliações dos {len(avaliacoes_domain)} corretores "
-            f"foram analisadas criticamente."
-        )
+
+        if pool.regra_revisor == "diferenca_enem" and len(avaliacoes_domain) >= 2:
+            params = pool.parametros_revisor or {}
+            av1, av2 = avaliacoes_domain[0], avaliacoes_domain[1]
+            comp_list = list(CompetenciaNome)
+            notas1 = av1.notas_dict
+            notas2 = av2.notas_dict
+            diff_total = abs(sum(notas1[c].nota for c in comp_list) - sum(notas2[c].nota for c in comp_list))
+            limiar_total = float(params.get("limiar_total", 100))
+            limiar_comp = float(params.get("limiar_competencia", 80))
+            if diff_total > limiar_total:
+                detalhe = f"diferença de {diff_total:.0f} pontos na nota total (limite {limiar_total:.0f})"
+            else:
+                diffs = {c: abs(notas1[c].nota - notas2[c].nota) for c in comp_list}
+                pior_comp, pior_diff = max(diffs.items(), key=lambda x: x[1])
+                detalhe = f"diferença de {pior_diff:.0f} pontos na competência C{pior_comp.value} (limite {limiar_comp:.0f})"
+            parecer_revisor = (
+                f"O revisor analisou as correções dos {len(avaliacoes_domain)} corretores "
+                f"e identificou {detalhe}. A nota final foi redefinida após análise crítica."
+            )
+        elif pool.regra_revisor == "desvio_padrao":
+            notas_med, desvios = _mediana_por_competencia(avaliacoes_domain)
+            if desvios:
+                pior_comp = max(desvios, key=desvios.get)
+                max_desvio_val = desvios[pior_comp]
+                parecer_revisor = (
+                    f"O revisor analisou as correções dos {len(avaliacoes_domain)} corretores "
+                    f"e identificou divergência na competência C{pior_comp.value} "
+                    f"(desvio padrão de {max_desvio_val:.1f} pontos, "
+                    f"acima do limite de {pool.limiar_desvio:.0f}). "
+                    f"A nota final foi redefinida após análise crítica."
+                )
+            else:
+                parecer_revisor = (
+                    f"O revisor analisou as correções dos {len(avaliacoes_domain)} corretores "
+                    f"e redefiniu a nota final após análise crítica."
+                )
+        else:
+            parecer_revisor = (
+                f"O revisor analisou as correções dos {len(avaliacoes_domain)} corretores "
+                f"e redefiniu a nota final após análise crítica."
+            )
     else:
         pesos = {av.avaliador: 1.0 for av in avaliacoes_domain}
         notas = consolidar_notas(avaliacoes_domain, pesos=pesos, metodo=pool.metodo)

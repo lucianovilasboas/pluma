@@ -83,11 +83,11 @@
         <div class="alert alert-warning py-2 mb-0 d-flex align-items-center gap-2 small">
           <span>🤖</span>
           <div>
-            <strong>Revisor de consenso acionado</strong>
-            — as avaliações dos corretores apresentaram divergência significativa.
-            A nota final foi definida por um corretor revisor inteligente após análise crítica das avaliações.
+            <strong>Revisor de consenso</strong>
             {% if consolidacao.parecer_revisor %}
-              <br><span class="text-muted">{{ consolidacao.parecer_revisor }}</span>
+              — {{ consolidacao.parecer_revisor }}
+            {% else %}
+              — as notas foram redefinidas após análise crítica.
             {% endif %}
           </div>
         </div>

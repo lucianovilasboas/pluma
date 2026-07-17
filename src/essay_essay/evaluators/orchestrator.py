@@ -478,40 +478,21 @@ async def avaliar_com_revisor(
     redacao: Redacao,
     avaliacoes: list[Avaliacao],
     modelo: str = "gpt-4o",
-    limiar: float = 20.0,
     sistema_prompt: str | None = None,
 ) -> AvaliacaoConsolidada:
+    _, desvios = _mediana_por_competencia(avaliacoes)
+
     logger.info(
-        "avaliar_com_revisor — %d avaliações, limiar=%.1f, modelo=%s",
-        len(avaliacoes), limiar, modelo,
+        "avaliar_com_revisor: revisor acionado — %d corretores, modelo=%s",
+        len(avaliacoes), modelo,
     )
-    notas_consolidadas, desvios = _mediana_por_competencia(avaliacoes)
-
-    max_desvio = max(desvios.values()) if desvios else 0.0
-
-    if max_desvio <= limiar:
-        logger.info(
-            "avaliar_com_revisor: desvio max %.1f <= limiar %.1f, sem revisor",
-            max_desvio, limiar,
-        )
-        return AvaliacaoConsolidada(
-            redacao_id=redacao.id or "",
-            notas=notas_consolidadas,
-            desvios=desvios,
-            avaliacoes_originais=avaliacoes,
-        )
 
     from essay_essay.prompts.templates import PromptRevisor
 
     revisor = PromptRevisor()
-    contexto = revisor.montar_contexto_revisor(avaliacoes, desvios, limiar=limiar)
+    contexto = revisor.montar_contexto_revisor(avaliacoes, desvios)
     sistema = sistema_prompt or revisor.sistema()
     usuario = revisor.usuario(redacao.texto, redacao.tema) + "\n\n" + contexto
-
-    logger.info(
-        "avaliar_com_revisor: revisor acionado — desvio max %.1f > limiar %.1f",
-        max_desvio, limiar,
-    )
 
     resposta = await llm.completar(sistema, usuario, modelo)
     json_data = extrair_json(resposta)
