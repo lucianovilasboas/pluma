@@ -229,7 +229,6 @@ class TestNotificarAlunoCorrecaoConcluida:
             notificar_aluno_correcao_concluida(redacao, 800)
 
         notif = Notificacao.objects.filter(usuario=aluno).first()
-        assert "Meu Tema" in notif.mensagem
         assert "800" in notif.mensagem
 
 

@@ -155,22 +155,22 @@
       'em_avaliacao': {
         badge: 'badge bg-warning text-dark',
         icone: '<div class="spinner-border spinner-border-sm me-2" role="status"></div>',
-        titulo: 'Avaliando sua redação',
-        mensagem: 'Aguarde enquanto os corretores analisam sua redação sobre "' + esc(redacaoTema) + '".',
+        titulo: 'Aguarde sua redação ser corrigida',
+        mensagem: 'Aguarde enquanto os corretores analisam sua redação.',
         acao: ''
       },
       'corrigida': {
         badge: 'badge bg-success',
         icone: '',
         titulo: 'Redação corrigida!',
-        mensagem: 'Sua redação sobre "' + esc(redacaoTema) + '" foi avaliada. Nota final: <strong>' + (notaTotal || '—') + '</strong>.',
+        mensagem: 'Sua redação' + (redacaoTema ? ' sobre "' + esc(redacaoTema) + '"' : '') + ' foi avaliada. Nota final: <strong>' + (notaTotal || '—') + '</strong>.',
         acao: '<a href="/dashboard/redacao/' + redacaoId + '" class="btn btn-success btn-sm mt-3">Ver resultado</a>'
       },
       'erro': {
         badge: 'badge bg-danger',
         icone: '',
         titulo: 'Erro na correção',
-        mensagem: 'Ocorreu um erro ao corrigir sua redação sobre "' + esc(redacaoTema) + '". Tente reenviar.',
+        mensagem: 'Ocorreu um erro ao corrigir sua redação' + (redacaoTema ? ' sobre "' + esc(redacaoTema) + '"' : '') + '. Tente reenviar.',
         acao: '<button class="btn btn-outline-primary btn-sm mt-3" onclick="location.reload()">Nova redação</button>'
       }
     };

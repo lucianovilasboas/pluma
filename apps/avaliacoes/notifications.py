@@ -93,13 +93,12 @@ def notificar_aluno_correcao_concluida(
 ) -> None:
     if not redacao.usuario:
         return
-    tema = _tema_exibicao(redacao)
     criar_notificacao(
         usuario=redacao.usuario,
         tipo=str(Notificacao.Tipo.CORRECAO_CONCLUIDA),
         mensagem=(
-            f"Correção concluída — sua redação sobre "
-            f"'{tema}' recebeu nota {nota}/1000."
+            f"Correção concluída — sua redação "
+            f"recebeu nota {nota}/1000."
         ),
         redacao=redacao,
     )
@@ -107,7 +106,7 @@ def notificar_aluno_correcao_concluida(
         usuario=redacao.usuario,
         assunto="Redação corrigida!",
         mensagem=(
-            f"Sua redação sobre '{tema}' foi corrigida "
+            f"Sua redação foi corrigida "
             f"e recebeu nota {nota}/1000.\n\n"
             f"Acesse o sistema para ver os detalhes."
         ),

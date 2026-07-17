@@ -10,7 +10,7 @@ from essay_essay.domain.models import Avaliacao
 class ProvedorPrompt(Protocol):
     nome: str
 
-    def sistema(self, conhecimento: str, protocolo: str = "") -> str: ...
+    def sistema(self, conhecimento: str, protocolo: str = "", output_json: bool = True) -> str: ...
     def usuario(self, redacao: str, tema: str) -> str: ...
     def set_rubrica(self, texto: str) -> None: ...
 
@@ -102,7 +102,7 @@ completa (agente + ação + meio + finalidade + detalhamento).
 Evite: clichês argumentativos, generalizações vagas, fuga do tema, propostas incompletas.
 Use linguagem formal e conectivos variados na análise.{_FORMATO_SAIDA}"""
 
-    def sistema(self, conhecimento: str, protocolo: str = "") -> str:
+    def sistema(self, conhecimento: str, protocolo: str = "", output_json: bool = True) -> str:
         base = self._base_sistema()
         partes = [base]
         if protocolo:
@@ -148,7 +148,7 @@ Competências:
 4. Coesão e coerência
 5. Proposta de intervenção{_FORMATO_SAIDA}"""
 
-    def sistema(self, conhecimento: str, protocolo: str = "") -> str:
+    def sistema(self, conhecimento: str, protocolo: str = "", output_json: bool = True) -> str:
         base = self._base_sistema()
         partes = [base]
         if protocolo:
@@ -176,7 +176,7 @@ class AvaliadorMinimo(ProvedorPrompt):
     def set_rubrica(self, texto: str) -> None:
         pass
 
-    def sistema(self, conhecimento: str, protocolo: str = "") -> str:
+    def sistema(self, conhecimento: str, protocolo: str = "", output_json: bool = True) -> str:
         partes = [
             "Você é um avaliador especializado na correção de redações do ENEM,"
             " utilizando as cinco competências da matriz do INEP."
@@ -211,7 +211,7 @@ class AvaliadorMinimo(ProvedorPrompt):
 class PromptRevisor:
     nome: str = field(default="revisor-consenso")
 
-    def sistema(self, conhecimento: str = "") -> str:
+    def sistema(self, conhecimento: str = "", output_json: bool = True) -> str:
         return (
             "Você é um revisor sênior de bancas de redação do ENEM. "
             "Sua tarefa NÃO é corrigir a redação do zero, mas ANALISAR "
@@ -391,7 +391,7 @@ class AvaliadorC1(ProvedorPrompt):
     def rubrica_ativa(self) -> str:
         return self._rubrica_override or _RUBRICA_C1
 
-    def sistema(self, conhecimento: str, protocolo: str = "") -> str:
+    def sistema(self, conhecimento: str, protocolo: str = "", output_json: bool = True) -> str:
         rubrica = self.rubrica_ativa()
         if protocolo:
             rubrica = f"PROTOCOLO DE AVALIAÇÃO ENEM (OFICIAL):\n{protocolo}\n\n{rubrica}"
@@ -439,7 +439,7 @@ class AvaliadorC2(ProvedorPrompt):
     def rubrica_ativa(self) -> str:
         return self._rubrica_override or _RUBRICA_C2
 
-    def sistema(self, conhecimento: str, protocolo: str = "") -> str:
+    def sistema(self, conhecimento: str, protocolo: str = "", output_json: bool = True) -> str:
         rubrica = self.rubrica_ativa()
         if protocolo:
             rubrica = f"PROTOCOLO DE AVALIAÇÃO ENEM (OFICIAL):\n{protocolo}\n\n{rubrica}"
@@ -514,7 +514,7 @@ class AvaliadorC3(ProvedorPrompt):
     def rubrica_ativa(self) -> str:
         return self._rubrica_override or _RUBRICA_C3
 
-    def sistema(self, conhecimento: str, protocolo: str = "") -> str:
+    def sistema(self, conhecimento: str, protocolo: str = "", output_json: bool = True) -> str:
         rubrica = self.rubrica_ativa()
         if protocolo:
             rubrica = f"PROTOCOLO DE AVALIAÇÃO ENEM (OFICIAL):\n{protocolo}\n\n{rubrica}"
@@ -561,7 +561,7 @@ class AvaliadorC4(ProvedorPrompt):
     def rubrica_ativa(self) -> str:
         return self._rubrica_override or _RUBRICA_C4
 
-    def sistema(self, conhecimento: str, protocolo: str = "") -> str:
+    def sistema(self, conhecimento: str, protocolo: str = "", output_json: bool = True) -> str:
         rubrica = self.rubrica_ativa()
         if protocolo:
             rubrica = f"PROTOCOLO DE AVALIAÇÃO ENEM (OFICIAL):\n{protocolo}\n\n{rubrica}"
@@ -608,7 +608,7 @@ class AvaliadorC5(ProvedorPrompt):
     def rubrica_ativa(self) -> str:
         return self._rubrica_override or _RUBRICA_C5
 
-    def sistema(self, conhecimento: str, protocolo: str = "") -> str:
+    def sistema(self, conhecimento: str, protocolo: str = "", output_json: bool = True) -> str:
         rubrica = self.rubrica_ativa()
         if protocolo:
             rubrica = f"PROTOCOLO DE AVALIAÇÃO ENEM (OFICIAL):\n{protocolo}\n\n{rubrica}"
@@ -698,7 +698,7 @@ class AvaliadorFugaTema:
 
     nome: str = field(default="classificador-fuga-tema")
 
-    def sistema(self, conhecimento: str = "") -> str:
+    def sistema(self, conhecimento: str = "", output_json: bool = True) -> str:
         _ = conhecimento
         return f"{_FUGA_TEMA_SISTEMA}\n\n{_FUGA_TEMA_FORMATO}"
 

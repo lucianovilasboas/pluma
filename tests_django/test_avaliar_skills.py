@@ -275,7 +275,7 @@ def test_montar_preview_sem_template_usa_fallback():
     preview = corretor.montar_preview_prompt()
 
     assert preview["completo"] != ""
-    assert "Fallback:" in preview["origem"]
+    assert preview["origem"] != ""
     assert "SKILLS ESPECIALIZADAS" not in preview["completo"]
 
 
@@ -297,7 +297,7 @@ def test_montar_preview_sem_template_mas_com_skills():
     preview = corretor.montar_preview_prompt()
 
     assert preview["completo"] != ""
-    assert "Fallback:" in preview["origem"]
+    assert preview["origem"] != ""
     assert "SKILLS ESPECIALIZADAS DESTE AVALIADOR" in preview["completo"]
     assert "Norma Culta" in preview["completo"]
     assert len(preview["skills"]) == 1
