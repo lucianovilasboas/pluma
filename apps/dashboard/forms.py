@@ -82,23 +82,25 @@ class AvaliacaoHumanaForm(BootstrapForm):
     avaliacao_id = forms.UUIDField(widget=forms.HiddenInput, required=False)
     nome_avaliador = forms.CharField(label="Avaliador", initial="humano", max_length=255)
 
-    c1_nota = forms.IntegerField(min_value=0, max_value=200, label="Competência 1")
+    _NOTA_WIDGET = forms.NumberInput(attrs={"step": 40})
+
+    c1_nota = forms.IntegerField(min_value=0, max_value=200, label="Competência 1", widget=_NOTA_WIDGET)
     c1_justificativa = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 2}))
     c1_sugestoes = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 2}))
 
-    c2_nota = forms.IntegerField(min_value=0, max_value=200, label="Competência 2")
+    c2_nota = forms.IntegerField(min_value=0, max_value=200, label="Competência 2", widget=_NOTA_WIDGET)
     c2_justificativa = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 2}))
     c2_sugestoes = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 2}))
 
-    c3_nota = forms.IntegerField(min_value=0, max_value=200, label="Competência 3")
+    c3_nota = forms.IntegerField(min_value=0, max_value=200, label="Competência 3", widget=_NOTA_WIDGET)
     c3_justificativa = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 2}))
     c3_sugestoes = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 2}))
 
-    c4_nota = forms.IntegerField(min_value=0, max_value=200, label="Competência 4")
+    c4_nota = forms.IntegerField(min_value=0, max_value=200, label="Competência 4", widget=_NOTA_WIDGET)
     c4_justificativa = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 2}))
     c4_sugestoes = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 2}))
 
-    c5_nota = forms.IntegerField(min_value=0, max_value=200, label="Competência 5")
+    c5_nota = forms.IntegerField(min_value=0, max_value=200, label="Competência 5", widget=_NOTA_WIDGET)
     c5_justificativa = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 2}))
     c5_sugestoes = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 2}))
 
