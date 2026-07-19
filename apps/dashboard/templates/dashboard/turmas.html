@@ -1,0 +1,54 @@
+{% extends "dashboard/base.html" %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Home</a></li>
+    <li class="breadcrumb-item active">Turmas</li>
+  </ol>
+</nav>
+<h2 class="h4 mb-3">Minhas Turmas</h2>
+
+{% if stats_por_turma %}
+  <div class="row g-3">
+    {% for s in stats_por_turma %}
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="card border-0 shadow-sm h-100">
+          <a href="{% url 'dashboard-turma' %}?turma_id={{ s.turma.id }}" class="text-decoration-none">
+            <div class="card-body">
+              <h5 class="card-title mb-1">{{ s.turma.nome_completo }}</h5>
+              <p class="text-muted small mb-2">{{ s.turma.escola.nome }}</p>
+              <div class="d-flex gap-3">
+                <div>
+                  <span class="fw-bold fs-5">{{ s.total_alunos }}</span>
+                  <span class="text-muted small d-block">Alunos</span>
+                </div>
+                <div>
+                  <span class="fw-bold fs-5">{{ s.media_geral }}</span>
+                  <span class="text-muted small d-block">Média geral</span>
+                </div>
+              </div>
+            </div>
+          </a>
+          <div class="card-footer bg-transparent border-0 pt-0">
+            <a href="{% url 'atividade-nova' %}?turma_id={{ s.turma.id }}" class="btn btn-sm btn-outline-primary">
+              + Criar atividade
+            </a>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="card border-0 shadow-sm">
+    <div class="card-body text-center py-5">
+      <p class="text-muted mb-1">Nenhuma turma encontrada.</p>
+      {% if request.user.user_type == 'professor' %}
+        <p class="text-muted small">Você ainda não foi vinculado a nenhuma turma. Peça ao administrador para adicioná-lo.</p>
+      {% else %}
+        <p class="text-muted small">Nenhuma turma cadastrada no sistema.</p>
+      {% endif %}
+    </div>
+  </div>
+{% endif %}
+{% endblock %}

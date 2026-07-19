@@ -4,6 +4,7 @@ from django.contrib import admin
 
 from .models import (
     CorretorLLM,
+    CorrecaoCopiloto,
     Ferramenta,
     PoolCorrecao,
     PoolCorretor,
@@ -94,3 +95,10 @@ class RubricaAdmin(admin.ModelAdmin):
     list_filter = ("competencia", "ativa", "versao")
     search_fields = ("nome",)
     ordering = ("competencia", "-versao")
+
+
+@admin.register(CorrecaoCopiloto)
+class CorrecaoCopilotoAdmin(admin.ModelAdmin):
+    list_display = ("nome", "corretor_llm", "ativo", "criado_por", "criado_em")
+    list_filter = ("ativo",)
+    search_fields = ("nome",)

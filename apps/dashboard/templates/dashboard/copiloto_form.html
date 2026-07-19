@@ -1,0 +1,54 @@
+{% extends "dashboard/base.html" %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Home</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'copiloto-lista' %}">Copilotos</a></li>
+    <li class="breadcrumb-item active">{{ copiloto.nome|default:"Novo Copiloto" }}</li>
+  </ol>
+</nav>
+<h2 class="h4 mb-3">{{ copiloto.nome|default:"Novo Copiloto" }}</h2>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body">
+    <form method="post">
+      {% csrf_token %}
+
+      <div class="mb-3">
+        <label for="nome" class="form-label">Nome do Copiloto</label>
+        <input type="text" id="nome" name="nome" class="form-control"
+               value="{{ copiloto.nome|default:'' }}" maxlength="255" required
+               placeholder="Ex: Copiloto Padrão ENEM">
+      </div>
+
+      <div class="mb-3">
+        <label for="corretor_llm_id" class="form-label">Corretor IA</label>
+        <select id="corretor_llm_id" name="corretor_llm_id" class="form-select" required>
+          <option value="">— Selecione um corretor —</option>
+          {% for corr in corretores %}
+            <option value="{{ corr.id }}" {% if copiloto and copiloto.corretor_llm_id|stringformat:"s" == corr.id|stringformat:"s" %}selected{% endif %}>
+              {{ corr.nome }} ({{ corr.modelo }})
+            </option>
+          {% endfor %}
+        </select>
+        <div class="form-text">Este corretor será usado para pré-corrigir as redações.</div>
+      </div>
+
+      <div class="mb-3 form-check">
+        <input type="checkbox" id="ativo" name="ativo" class="form-check-input"
+               {% if copiloto and copiloto.ativo %}checked{% endif %}>
+        <label for="ativo" class="form-check-label">Ativo</label>
+        <div class="form-text">Apenas copilotos ativos podem ser usados em atividades.</div>
+      </div>
+
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">
+          {% if copiloto %}Salvar alterações{% else %}Criar Copiloto{% endif %}
+        </button>
+        <a href="{% url 'copiloto-lista' %}" class="btn btn-outline-secondary">Cancelar</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

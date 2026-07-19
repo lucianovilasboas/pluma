@@ -93,6 +93,48 @@ class TemaRedacao(models.Model):
         return self.titulo
 
 
+class AtividadeAvaliativa(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    titulo = models.CharField(max_length=255, verbose_name="Título da atividade")
+    copiloto = models.ForeignKey(
+        "corretores.CorrecaoCopiloto",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="atividades",
+        verbose_name="Copiloto de correção",
+    )
+    tema = models.ForeignKey(
+        "TemaRedacao",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="atividades",
+    )
+    turmas = models.ManyToManyField(
+        "accounts.Turma",
+        related_name="atividades",
+        verbose_name="Turmas",
+    )
+    prazo = models.DateTimeField(null=True, blank=True, verbose_name="Prazo de entrega")
+    criado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="atividades_criadas",
+        verbose_name="Criado por",
+    )
+    criada_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "atividades_avaliativas"
+        ordering = ["-criada_em"]
+        verbose_name = "Atividade avaliativa"
+        verbose_name_plural = "Atividades avaliativas"
+
+    def __str__(self) -> str:
+        return self.titulo
+
+
 class Redacao(models.Model):
     class Status(models.TextChoices):
         PENDENTE = "pendente", "Pendente"
@@ -121,6 +163,14 @@ class Redacao(models.Model):
         null=True,
         blank=True,
         related_name="redacoes",
+    )
+    atividade = models.ForeignKey(
+        AtividadeAvaliativa,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="redacoes",
+        verbose_name="Atividade avaliativa",
     )
     status = models.CharField(
         max_length=20,

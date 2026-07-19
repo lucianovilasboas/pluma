@@ -4,10 +4,29 @@
 <nav aria-label="breadcrumb" class="mb-3">
   <ol class="breadcrumb">
     <li class="breadcrumb-item"><a href="/">Home</a></li>
-    <li class="breadcrumb-item active">Turma</li>
+    <li class="breadcrumb-item"><a href="{% url 'dashboard-turma' %}">Turmas</a></li>
+    <li class="breadcrumb-item active">{{ turma_selecionada.nome_completo }}</li>
   </ol>
 </nav>
-<h2 class="h4 mb-3">Turma</h2>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="h4 mb-0">Turma</h2>
+  {% if turmas|length > 1 %}
+  <form method="get" class="d-flex align-items-center gap-2">
+    <label for="turma-select" class="form-label small text-muted mb-0">Turma:</label>
+    <select name="turma_id" id="turma-select" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
+      {% for t in turmas %}
+        <option value="{{ t.id }}" {% if t.id == turma_selecionada.id %}selected{% endif %}>
+          {{ t.nome_completo }}
+        </option>
+      {% endfor %}
+    </select>
+  </form>
+  {% endif %}
+</div>
+
+{% if turma_selecionada %}
+  <p class="text-muted small mb-3">{{ turma_selecionada.escola.nome }} — {{ turma_selecionada.nome_completo }}</p>
+{% endif %}
 
 {% if barras_json %}
 <div class="row g-3 mb-4">
@@ -43,7 +62,7 @@
             </tr>
           {% empty %}
             <tr>
-              <td colspan="4" class="text-center text-muted py-4">Sem alunos cadastrados.</td>
+              <td colspan="4" class="text-center text-muted py-4">Nenhum aluno nesta turma.</td>
             </tr>
           {% endfor %}
         </tbody>

@@ -1,0 +1,58 @@
+{% extends "dashboard/base.html" %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Home</a></li>
+    <li class="breadcrumb-item active">Minhas Atividades</li>
+  </ol>
+</nav>
+<h2 class="h4 mb-3">Minhas Atividades</h2>
+
+{% if atividades %}
+  <div class="row g-3">
+    {% for item in atividades %}
+      {% with atv=item.atividade %}
+        <div class="col-12 col-md-6 col-lg-4">
+          <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start mb-2">
+                <h5 class="card-title mb-0">{{ atv.titulo }}</h5>
+                {% if item.status == "pendente" %}
+                  <span class="badge bg-warning text-dark rounded-pill">Pendente</span>
+                {% elif item.status == "aguardando" %}
+                  <span class="badge bg-info rounded-pill">Aguardando</span>
+                {% elif item.status == "corrigida" %}
+                  <span class="badge bg-success rounded-pill">{{ item.nota }}/1000</span>
+                {% endif %}
+              </div>
+              {% if atv.tema %}
+                <p class="text-muted small mb-1">Tema: {{ atv.tema.titulo }}</p>
+              {% endif %}
+              {% if atv.prazo %}
+                <p class="text-muted small mb-1">Prazo: {{ atv.prazo|date:"d/m/Y H:i" }}</p>
+              {% endif %}
+              <p class="text-muted small mb-0">Prof. {{ atv.criado_por.nome_exibicao }}</p>
+            </div>
+            <div class="card-footer bg-transparent border-0 pt-0">
+              {% if item.status == "pendente" %}
+                <a href="{% url 'atividade-aluno' atv.id %}" class="btn btn-primary btn-sm">Escrever redação</a>
+              {% elif item.status == "aguardando" %}
+                <a href="{% url 'atividade-aluno' atv.id %}" class="btn btn-outline-secondary btn-sm">Ver status</a>
+              {% elif item.status == "corrigida" %}
+                <a href="{% url 'atividade-aluno' atv.id %}" class="btn btn-outline-success btn-sm">Ver correção</a>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      {% endwith %}
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="card border-0 shadow-sm">
+    <div class="card-body text-center py-5">
+      <p class="text-muted mb-0">Nenhuma atividade disponível no momento.</p>
+    </div>
+  </div>
+{% endif %}
+{% endblock %}

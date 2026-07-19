@@ -333,6 +333,29 @@
         color: #0f172a;
         font-weight: 600;
       }
+
+      .navbar-essay .dropdown-menu {
+        border: none;
+        border-radius: 8px;
+        padding: 0.25rem 0;
+        background: #1e293b;
+      }
+      .navbar-essay .dropdown-item {
+        color: rgba(255,255,255,0.75);
+        font-size: 0.85rem;
+        padding: 0.4rem 1rem;
+      }
+      .navbar-essay .dropdown-item:hover {
+        color: #fff;
+        background: rgba(255,255,255,0.08);
+      }
+
+      @media (min-width: 992px) {
+        .navbar-nav .dropdown:hover > .dropdown-menu {
+          display: block;
+          margin-top: 0;
+        }
+      }
     </style>
   </head>
   <body>
@@ -357,64 +380,107 @@
             {% if request.user.is_authenticated %}
               <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                 {% if request.user.user_type == 'aluno' %}
-                  <li class="nav-item">
-                    <a class="nav-link" href="/dashboard/submeter">
-                      Redigir redação
-                      <span class="badge bg-info text-dark ms-1 d-none" data-nav-badge="em_avaliacao_count"></span>
-                    </a>
-                  </li>
-                  <li class="nav-item">
-                    <a class="nav-link" href="/dashboard/minhas-redacoes">
-                      Minhas Redações
-                      <span class="badge bg-success ms-1 d-none" data-nav-badge="corrigidas_count"></span>
-                    </a>
-                  </li>
-                  <li class="nav-item">
-                    <span class="nav-link disabled text-secondary" style="pointer-events:none;">
-                      Seleção de corretores (em breve)
-                    </span>
-                  </li>
-                {% else %}
-                  <li class="nav-item">
-                    <a class="nav-link" href="/dashboard/minhas-correcoes">
-                      Minhas Correções
-                    </a>
-                  </li>
-                  <li class="nav-item">
-                    <a class="nav-link" href="/dashboard/corrigir">
-                      Corrigir
-                      <span class="badge bg-danger ms-1 d-none" data-nav-badge="pendentes_count"></span>
-                      <span class="badge bg-warning text-dark ms-1 d-none" data-nav-badge="rascunhos_count"></span>
-                    </a>
-                  </li>
-                {% endif %}
-                {% if request.user.user_type == 'admin' or request.user.user_type == 'professor' %}
-                  <li class="nav-item"><a class="nav-link" href="/dashboard/turma">Turma</a></li>
-                  <li class="nav-item"><a class="nav-link" href="{% url 'admin-temas' %}">Temas</a></li>
-                {% endif %}
-                {% if request.user.user_type != 'aluno' %}
                   <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                      Relatórios
-                    </a>
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Escrita</a>
                     <ul class="dropdown-menu dropdown-menu-dark">
-                      <li><a class="dropdown-item" href="/dashboard/relatorios">Alunos</a></li>
-                      <li><a class="dropdown-item" href="/dashboard/relatorios/corretores">Corretores</a></li>
+                      <li><a class="dropdown-item" href="/dashboard/submeter">Redigir redação</a></li>
+                      <li><a class="dropdown-item" href="{% url 'minhas-atividades' %}">Minhas Atividades</a></li>
                     </ul>
                   </li>
-                  <li class="nav-item"><a class="nav-link" href="/dashboard/estatisticas">Estatísticas</a></li>
-                {% endif %}
-                {% if request.user.user_type == 'admin' %}
-                  <li class="nav-item">
-                    <a class="nav-link" href="/dashboard/bancas">
-                      Bancas
-                      <span class="badge bg-danger ms-1 d-none" data-nav-badge="usuarios_sem_banca"></span>
-                    </a>
+                  <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Histórico</a>
+                    <ul class="dropdown-menu dropdown-menu-dark">
+                      <li><a class="dropdown-item" href="/dashboard/minhas-redacoes">Minhas Redações</a></li>
+                    </ul>
                   </li>
-                  <li class="nav-item"><a class="nav-link" href="/dashboard/agentes">Agentes</a></li>
-                  <li class="nav-item"><a class="nav-link" href="/dashboard/fila">Fila</a></li>
-                  <li class="nav-item"><a class="nav-link" href="/dashboard/debug">Debug</a></li>
-                  <li class="nav-item"><a class="nav-link" href="/dashboard/configuracoes">Configurações</a></li>
+                {% elif request.user.user_type == 'professor' %}
+                  <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Minhas Atividades</a>
+                    <ul class="dropdown-menu dropdown-menu-dark">
+                      <li><a class="dropdown-item" href="{% url 'copiloto-pendentes' %}">Pré-correções</a></li>
+                      <li><a class="dropdown-item" href="{% url 'atividades-lista' %}">Atividades</a></li>
+                      <li><a class="dropdown-item" href="{% url 'copiloto-lista' %}">Copiloto</a></li>
+                    </ul>
+                  </li>
+                  <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Corrigir</a>
+                    <ul class="dropdown-menu dropdown-menu-dark">
+                      <li><a class="dropdown-item" href="/dashboard/corrigir">Corrigir</a></li>
+                      <li><a class="dropdown-item" href="/dashboard/minhas-correcoes">Minhas Correções</a></li>
+                    </ul>
+                  </li>
+                  <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Gestão</a>
+                    <ul class="dropdown-menu dropdown-menu-dark">
+                      <li><a class="dropdown-item" href="/dashboard/turma">Turmas</a></li>
+                      <li><a class="dropdown-item" href="{% url 'admin-temas' %}">Temas</a></li>
+                    </ul>
+                  </li>
+                  <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Análise</a>
+                    <ul class="dropdown-menu dropdown-menu-dark">
+                      <li><a class="dropdown-item" href="/dashboard/relatorios">Rel. Alunos</a></li>
+                      <li><a class="dropdown-item" href="/dashboard/relatorios/corretores">Rel. Corretores</a></li>
+                      <li><a class="dropdown-item" href="/dashboard/estatisticas">Estatísticas</a></li>
+                    </ul>
+                  </li>
+                {% elif request.user.user_type == 'corretor' %}
+                  <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Corrigir</a>
+                    <ul class="dropdown-menu dropdown-menu-dark">
+                      <li><a class="dropdown-item" href="/dashboard/corrigir">Corrigir</a></li>
+                      <li><a class="dropdown-item" href="/dashboard/minhas-correcoes">Minhas Correções</a></li>
+                    </ul>
+                  </li>
+                  <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Análise</a>
+                    <ul class="dropdown-menu dropdown-menu-dark">
+                      <li><a class="dropdown-item" href="/dashboard/relatorios">Rel. Alunos</a></li>
+                      <li><a class="dropdown-item" href="/dashboard/relatorios/corretores">Rel. Corretores</a></li>
+                      <li><a class="dropdown-item" href="/dashboard/estatisticas">Estatísticas</a></li>
+                    </ul>
+                  </li>
+                {% elif request.user.user_type == 'admin' %}
+                  <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Minhas Atividades</a>
+                    <ul class="dropdown-menu dropdown-menu-dark">
+                      <li><a class="dropdown-item" href="{% url 'copiloto-pendentes' %}">Pré-correções</a></li>
+                      <li><a class="dropdown-item" href="{% url 'atividades-lista' %}">Atividades</a></li>
+                      <li><a class="dropdown-item" href="{% url 'copiloto-lista' %}">Copiloto</a></li>
+                    </ul>
+                  </li>
+                  <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Corrigir</a>
+                    <ul class="dropdown-menu dropdown-menu-dark">
+                      <li><a class="dropdown-item" href="/dashboard/corrigir">Corrigir</a></li>
+                      <li><a class="dropdown-item" href="/dashboard/minhas-correcoes">Minhas Correções</a></li>
+                    </ul>
+                  </li>
+                  <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Gestão</a>
+                    <ul class="dropdown-menu dropdown-menu-dark">
+                      <li><a class="dropdown-item" href="/dashboard/turma">Turmas</a></li>
+                      <li><a class="dropdown-item" href="{% url 'admin-temas' %}">Temas</a></li>
+                      <li><a class="dropdown-item" href="/dashboard/bancas">Bancas</a></li>
+                      <li><a class="dropdown-item" href="/dashboard/agentes">Agentes</a></li>
+                    </ul>
+                  </li>
+                  <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Operação</a>
+                    <ul class="dropdown-menu dropdown-menu-dark">
+                      <li><a class="dropdown-item" href="/dashboard/fila">Fila</a></li>
+                      <li><a class="dropdown-item" href="/dashboard/configuracoes">Configurações</a></li>
+                      <li><a class="dropdown-item" href="/dashboard/debug">Debug</a></li>
+                    </ul>
+                  </li>
+                  <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Análise</a>
+                    <ul class="dropdown-menu dropdown-menu-dark">
+                      <li><a class="dropdown-item" href="/dashboard/relatorios">Rel. Alunos</a></li>
+                      <li><a class="dropdown-item" href="/dashboard/relatorios/corretores">Rel. Corretores</a></li>
+                      <li><a class="dropdown-item" href="/dashboard/estatisticas">Estatísticas</a></li>
+                    </ul>
+                  </li>
                 {% endif %}
               </ul>
               <div class="d-flex align-items-center gap-2 flex-wrap">
@@ -544,6 +610,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 "corrigidas_count",
                 "pendentes_count",
                 "usuarios_sem_banca",
+                "pre_correcoes_count",
                 "notificacoes_nao_lidas",
               ];
 

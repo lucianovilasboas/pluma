@@ -481,6 +481,7 @@ class TestListarModelosGemini:
             client_mock = mock_ao.return_value
             client_mock.models.list = AsyncMock()
             client_mock.models.list.return_value.data = []
+            client_mock.close = AsyncMock()
 
             asyncio.run(listar_modelos(provedor))
             mock_ao.assert_called_once_with(
@@ -585,6 +586,7 @@ class TestListarModelosGemini:
                 client_mock = mock_ao.return_value
                 client_mock.models.list = AsyncMock()
                 client_mock.models.list.return_value.data = []
+                client_mock.close = AsyncMock()
 
                 result_open = asyncio.run(listar_modelos(provedor_openai))
                 assert mock_gemini.call_count == 0

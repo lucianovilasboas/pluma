@@ -12,6 +12,7 @@ class Notificacao(models.Model):
         CORRECAO_ACEITA = "correcao_aceita", "Correção aceita"
         CORRECAO_RECUSADA = "correcao_recusada", "Correção recusada"
         CORRECAO_CONCLUIDA = "correcao_concluida", "Correção concluída"
+        NOVA_ATIVIDADE = "nova_atividade", "Nova atividade disponível"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     usuario = models.ForeignKey(
@@ -94,6 +95,14 @@ class Avaliacao(models.Model):
     admin_feedback = models.CharField(
         max_length=10, blank=True, default="",
         help_text="Feedback do admin: 'bom' | 'ruim' | '' (sem feedback)",
+    )
+    feedback_professor = models.JSONField(
+        default=dict, blank=True,
+        help_text="Feedback do professor na revisão: notas editadas, justificativas, comentários",
+    )
+    liberada_em = models.DateTimeField(
+        null=True, blank=True,
+        help_text="Data em que o professor liberou a correção para o aluno",
     )
 
     class Meta:

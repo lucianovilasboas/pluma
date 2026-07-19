@@ -112,6 +112,45 @@ def consolidar_avaliacao_job(redacao_id: str, pool_id: str) -> None:
         logger.exception("Falha na consolidacao — redacao=%s", redacao_id)
 
 
+def _executar_pre_correcao_copiloto_job(redacao_id: str, corretor_llm_id: str) -> None:
+    close_old_connections()
+    try:
+        from apps.corretores.models import CorretorLLM
+
+        redacao = Redacao.objects.get(pk=redacao_id)
+        corretor_llm = CorretorLLM.objects.get(pk=corretor_llm_id)
+        from apps.dashboard.views import _executar_pre_correcao_copiloto
+
+        _executar_pre_correcao_copiloto(redacao, corretor_llm)
+        logger.info(
+            "Pré-correção copiloto concluída — redacao=%s, corretor=%s",
+            redacao_id, corretor_llm.nome,
+        )
+    except Exception:
+        logger.exception("Falha na pré-correção copiloto — redacao=%s", redacao_id)
+        Redacao.objects.filter(id=redacao_id).update(status=Redacao.Status.ERRO)
+    finally:
+        close_old_connections()
+
+
+def disparar_pre_correcao_copiloto(redacao_id: str, corretor_llm_id: str) -> None:
+    if os.getenv("PYTEST_CURRENT_TEST"):
+        logger.debug("Dispatcher copiloto: modo teste, ignorando")
+        return
+    usar_q2 = os.getenv("AVALIACAO_USE_Q2", "false").lower() in {"1", "true", "yes"}
+    if usar_q2:
+        logger.info("Dispatcher copiloto: rota Q2")
+        async_task("apps.avaliacoes.tasks._executar_pre_correcao_copiloto_job", redacao_id, corretor_llm_id)
+        return
+    logger.info("Dispatcher copiloto: rota thread")
+    t = threading.Thread(
+        target=_executar_pre_correcao_copiloto_job,
+        args=(redacao_id, corretor_llm_id),
+        daemon=True,
+    )
+    t.start()
+
+
 def agendar_consolidacao(redacao_id: str, pool_id: str) -> None:
     usar_q2 = os.getenv("AVALIACAO_USE_Q2", "false").lower() in {"1", "true", "yes"}
     if usar_q2:

@@ -440,3 +440,41 @@ class Rubrica(models.Model):
 
     def __str__(self) -> str:
         return f"{self.get_competencia_display()} — v{self.versao} ({self.nome})"
+
+
+class CorrecaoCopiloto(models.Model):
+    MERGE_CHOICES = (
+        ("professor_override", "Professor sobrescreve"),
+    )
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    nome = models.CharField(max_length=255, verbose_name="Nome do copiloto")
+    corretor_llm = models.ForeignKey(
+        CorretorLLM,
+        on_delete=models.CASCADE,
+        related_name="copilotos",
+        verbose_name="Corretor IA",
+    )
+    merge_strategy = models.CharField(
+        max_length=30,
+        choices=MERGE_CHOICES,
+        default="professor_override",
+    )
+    ativo = models.BooleanField(default=False, verbose_name="Ativo")
+    criado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="copilotos_criados",
+        verbose_name="Criado por",
+    )
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "correcoes_copiloto"
+        ordering = ["-criado_em"]
+        verbose_name = "Copiloto de correção"
+        verbose_name_plural = "Copilotos de correção"
+
+    def __str__(self) -> str:
+        return self.nome

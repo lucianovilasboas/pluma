@@ -20,6 +20,7 @@ class TurmaAdmin(admin.ModelAdmin):
     search_fields = ("ano", "curso", "identificador", "escola__nome")
     list_filter = ("ano", "curso")
     ordering = ("escola__nome", "ano", "curso", "identificador")
+    filter_horizontal = ("professores",)
 
     def nome_completo(self, obj: Turma) -> str:
         return obj.nome_completo
@@ -27,9 +28,17 @@ class TurmaAdmin(admin.ModelAdmin):
     nome_completo.short_description = "Turma"
 
 
+class ProfessorTurmaInline(admin.TabularInline):
+    model = Turma.professores.through
+    extra = 1
+    verbose_name = "Turma"
+    verbose_name_plural = "Turmas que leciona"
+
+
 @admin.register(CustomUser)
 class CustomUserAdmin(UserAdmin):
     model = CustomUser
+    inlines = [ProfessorTurmaInline]
     list_display = ("email", "nome", "user_type", "escola", "turma", "is_active", "is_staff")
     list_filter = ("user_type", "is_active", "is_staff", "is_superuser", "escola")
     ordering = ("email",)

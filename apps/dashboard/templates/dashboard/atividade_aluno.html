@@ -1,0 +1,274 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Home</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'minhas-atividades' %}">Atividades</a></li>
+    <li class="breadcrumb-item active">{{ atividade.titulo }}</li>
+  </ol>
+</nav>
+
+{% if redacao and evaluation %}
+
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-12 col-md-6">
+          <strong>{{ atividade.titulo }}</strong><br>
+          <small class="text-muted">Professor: {{ atividade.criado_por.nome_exibicao }}</small>
+          {% if atividade.prazo %}
+            <br><small class="text-muted">Prazo: {{ atividade.prazo|date:"d/m/Y H:i" }}</small>
+          {% endif %}
+          {% if atividade.tema and atividade.tema.texto %}
+            <button class="btn btn-sm btn-link text-decoration-none p-0 ms-0 mt-1 align-baseline"
+                    onclick="this.nextElementSibling.classList.toggle('d-none')">
+              📖 Ver tema completo
+            </button>
+            <div class="d-none mt-2 small text-muted p-2 bg-light rounded border">
+              <strong class="d-block mb-1">Texto do tema:</strong>
+              {{ atividade.tema.texto|linebreaksbr }}
+            </div>
+          {% endif %}
+        </div>
+        <div class="col-12 col-md-3">
+          <strong>Enviada:</strong> {{ redacao.criada_em|date:"d/m/Y H:i" }}
+        </div>
+        <div class="col-12 col-md-3">
+          <strong>Status:</strong>
+          <span class="badge text-bg-success">Corrigida</span>
+          <div class="mt-2">
+            <span class="badge text-bg-success fs-5 px-3 py-2">{{ evaluation.nota_total }}/1000</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white">
+      <h5 class="mb-0">Texto da Redação</h5>
+    </div>
+    <div class="card-body">
+      <div style="white-space:pre-wrap;font-family:inherit;line-height:1.7;" id="redacao-texto">{{ texto_html }}</div>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <h5 class="mb-0">Correção</h5>
+      <div class="text-end">
+        <span class="badge text-bg-success fs-4 px-3 py-2">{{ evaluation.nota_total }}/1000</span>
+      </div>
+    </div>
+    <div class="card-body pt-2">
+      <div class="table-responsive">
+        <table class="table table-sm mb-2" style="table-layout:fixed;">
+          <colgroup>
+            <col style="width:16%">
+            <col style="width:8%">
+            <col style="width:38%">
+            <col style="width:38%">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>Competência</th>
+              <th class="text-center">Nota</th>
+              <th>Justificativa</th>
+              <th>Sugestões</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="text-nowrap">C1 - Norma</td>
+              <td class="text-center align-middle">{{ evaluation.c1_nota }}</td>
+              <td style="font-size:0.8rem;word-break:break-word;">{{ evaluation.c1_justificativa }}</td>
+              <td style="font-size:0.8rem;word-break:break-word;">{{ evaluation.c1_sugestoes }}</td>
+            </tr>
+            <tr>
+              <td class="text-nowrap">C2 - Tema</td>
+              <td class="text-center align-middle">{{ evaluation.c2_nota }}</td>
+              <td style="font-size:0.8rem;word-break:break-word;">{{ evaluation.c2_justificativa }}</td>
+              <td style="font-size:0.8rem;word-break:break-word;">{{ evaluation.c2_sugestoes }}</td>
+            </tr>
+            <tr>
+              <td class="text-nowrap">C3 - Argumentação</td>
+              <td class="text-center align-middle">{{ evaluation.c3_nota }}</td>
+              <td style="font-size:0.8rem;word-break:break-word;">{{ evaluation.c3_justificativa }}</td>
+              <td style="font-size:0.8rem;word-break:break-word;">{{ evaluation.c3_sugestoes }}</td>
+            </tr>
+            <tr>
+              <td class="text-nowrap">C4 - Coesão</td>
+              <td class="text-center align-middle">{{ evaluation.c4_nota }}</td>
+              <td style="font-size:0.8rem;word-break:break-word;">{{ evaluation.c4_justificativa }}</td>
+              <td style="font-size:0.8rem;word-break:break-word;">{{ evaluation.c4_sugestoes }}</td>
+            </tr>
+            <tr>
+              <td class="text-nowrap">C5 - Intervenção</td>
+              <td class="text-center align-middle">{{ evaluation.c5_nota }}</td>
+              <td style="font-size:0.8rem;word-break:break-word;">{{ evaluation.c5_justificativa }}</td>
+              <td style="font-size:0.8rem;word-break:break-word;">{{ evaluation.c5_sugestoes }}</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr class="table-active">
+              <th>Total</th>
+              <td class="text-center"><span class="badge text-bg-success">{{ evaluation.nota_total }}</span></td>
+              <td colspan="2"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      {% if anotacoes %}
+      <div class="mt-3">
+        <div class="small fw-semibold text-muted mb-1">Anotações no texto ({{ anotacoes|length }}):</div>
+        <div class="d-flex flex-wrap gap-1">
+          {% for a in anotacoes %}
+          <div class="d-flex align-items-center">
+            <span class="badge rounded-pill small
+              {% if a.tipo_erro == 'ortografia' %}bg-danger-subtle text-danger-emphasis
+              {% elif a.tipo_erro == 'concordancia' %}bg-warning-subtle text-warning-emphasis
+              {% elif a.tipo_erro == 'pontuacao' %}bg-warning-subtle text-warning-emphasis
+              {% elif a.tipo_erro == 'coesao' %}bg-primary-subtle text-primary-emphasis
+              {% elif a.tipo_erro == 'vocabulario' %}bg-info-subtle text-info-emphasis
+              {% elif a.tipo_erro == 'argumentacao' %}bg-danger-subtle text-danger-emphasis
+              {% elif a.tipo_erro == 'clareza' %}bg-success-subtle text-success-emphasis
+              {% else %}bg-secondary-subtle text-secondary-emphasis{% endif %}">
+              {{ a.get_tipo_erro_display }}
+            </span>
+            <small class="text-muted ms-1">"{{ a.trecho_texto|truncatechars:40 }}"</small>
+            {% if a.comentario %}
+            <small class="text-muted ms-1" title="{{ a.comentario }}">&#9432;</small>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if radar_json %}
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white">
+      <h5 class="mb-0">Radar por Competência</h5>
+    </div>
+    <div class="card-body">
+      <div id="radar-chart"></div>
+    </div>
+  </div>
+  {% endif %}
+
+{% elif redacao %}
+
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-12 col-md-6">
+          <strong>{{ atividade.titulo }}</strong><br>
+          <small class="text-muted">Professor: {{ atividade.criado_por.nome_exibicao }}</small>
+          {% if atividade.prazo %}
+            <br><small class="text-muted">Prazo: {{ atividade.prazo|date:"d/m/Y H:i" }}</small>
+          {% endif %}
+          {% if atividade.tema and atividade.tema.texto %}
+            <button class="btn btn-sm btn-link text-decoration-none p-0 ms-0 mt-1 align-baseline"
+                    onclick="this.nextElementSibling.classList.toggle('d-none')">
+              📖 Ver tema completo
+            </button>
+            <div class="d-none mt-2 small text-muted p-2 bg-light rounded border">
+              <strong class="d-block mb-1">Texto do tema:</strong>
+              {{ atividade.tema.texto|linebreaksbr }}
+            </div>
+          {% endif %}
+        </div>
+        <div class="col-12 col-md-3">
+          <strong>Enviada:</strong> {{ redacao.criada_em|date:"d/m/Y H:i" }}
+        </div>
+        <div class="col-12 col-md-3">
+          <strong>Status:</strong>
+          <span class="badge text-bg-warning">Em Avaliação</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white">
+      <h5 class="mb-0">Sua Redação</h5>
+    </div>
+    <div class="card-body">
+      <p class="text-muted small mb-2">Enviada em {{ redacao.criada_em|date:"d/m/Y H:i" }}</p>
+      <div style="white-space:pre-wrap;font-family:inherit;line-height:1.7;font-size:0.95rem;">
+        {{ redacao.texto }}
+      </div>
+      <div class="alert alert-info py-2 mt-3 mb-0 d-flex align-items-center gap-2 small">
+        <span>⏳</span>
+        <div>
+          <strong>Aguardando correção</strong>
+          — sua redação foi enviada e está aguardando o professor revisar.
+        </div>
+      </div>
+    </div>
+  </div>
+
+{% else %}
+
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+        <div>
+          <h5 class="mb-1">{{ atividade.titulo }}</h5>
+          {% if atividade.tema %}
+            <p class="text-muted small mb-1"><strong>Tema:</strong> {{ atividade.tema.titulo }}</p>
+          {% endif %}
+          <p class="text-muted small mb-0"><strong>Professor:</strong> {{ atividade.criado_por.nome_exibicao }}</p>
+          {% if atividade.prazo %}
+            <p class="text-muted small mb-0"><strong>Prazo:</strong> {{ atividade.prazo|date:"d/m/Y H:i" }}</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if atividade.tema and atividade.tema.texto %}
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+      <h6 class="mb-2">Textos motivadores</h6>
+      <div class="border rounded p-3 bg-light small" style="white-space:pre-wrap;">
+        {{ atividade.tema.texto }}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white">
+      <h5 class="mb-0">Escrever Redação</h5>
+    </div>
+    <div class="card-body">
+      <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+          <textarea name="texto" class="form-control" rows="18"
+                    placeholder="Escreva sua redação aqui..." minlength="20" required></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">Enviar redação</button>
+      </form>
+    </div>
+  </div>
+
+{% endif %}
+
+<div class="annotation-tooltip" id="annotation-tooltip"></div>
+<script src="{% static 'dashboard/js/corrigir-core.js' %}"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    {% if radar_json %}
+    var radar = {{ radar_json|safe }};
+    Plotly.newPlot("radar-chart", radar.data, radar.layout, {responsive: true});
+    {% endif %}
+  });
+</script>
+{% endblock %}

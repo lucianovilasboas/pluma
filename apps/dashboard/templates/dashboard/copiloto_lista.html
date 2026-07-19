@@ -1,0 +1,59 @@
+{% extends "dashboard/base.html" %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Home</a></li>
+    <li class="breadcrumb-item active">Copilotos de Correção</li>
+  </ol>
+</nav>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="h4 mb-0">Copilotos de Correção</h2>
+  <a href="{% url 'copiloto-novo' %}" class="btn btn-primary btn-sm">+ Novo Copiloto</a>
+</div>
+
+{% if copilotos %}
+  <div class="row g-3">
+    {% for c in copilotos %}
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+              <h5 class="card-title mb-0">{{ c.nome }}</h5>
+              {% if c.ativo %}
+                <span class="badge bg-success rounded-pill">Ativo</span>
+              {% else %}
+                <span class="badge bg-secondary rounded-pill">Inativo</span>
+              {% endif %}
+            </div>
+            <p class="text-muted small mb-2">
+              Corretor: {{ c.corretor_llm.nome }} ({{ c.corretor_llm.modelo }})
+            </p>
+            <p class="text-muted small mb-2">
+              Estratégia: {{ c.get_merge_strategy_display }}
+            </p>
+            <p class="text-muted small mb-0">
+              Criado por {{ c.criado_por.nome_exibicao }} em {{ c.criado_em|date:"d/m/Y" }}
+            </p>
+          </div>
+          <div class="card-footer bg-transparent border-0 pt-0 d-flex gap-1">
+            <a href="{% url 'copiloto-editar' c.id %}" class="btn btn-outline-primary btn-sm">Editar</a>
+            <form method="post" action="{% url 'copiloto-excluir' c.id %}" style="display:inline"
+                  onsubmit="return confirm('Excluir este copiloto? As atividades vinculadas perderão o vínculo com o copiloto.')">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-outline-danger btn-sm">Excluir</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="card border-0 shadow-sm">
+    <div class="card-body text-center py-5">
+      <p class="text-muted mb-1">Nenhum copiloto cadastrado.</p>
+      <a href="{% url 'copiloto-novo' %}" class="btn btn-primary btn-sm mt-2">Criar primeiro copiloto</a>
+    </div>
+  </div>
+{% endif %}
+{% endblock %}

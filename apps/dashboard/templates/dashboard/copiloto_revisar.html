@@ -1,0 +1,187 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Home</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'copiloto-pendentes' %}">Pré-correções</a></li>
+    <li class="breadcrumb-item active">Revisar</li>
+  </ol>
+</nav>
+
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body">
+    <strong>Título:</strong> {{ redacao.tema|default:"—" }}<br>
+    <strong>Aluno:</strong> {{ redacao.usuario.nome_exibicao }}<br>
+    <strong>Atividade:</strong> {{ atividade.titulo }}
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body">
+    <h5 class="mb-2">Texto da Redação</h5>
+    <div id="redacao-texto"
+         class="border rounded p-3 bg-white"
+         style="min-height:150px;max-height:40vh;overflow-y:auto;white-space:pre-wrap;font-size:0.95rem;line-height:1.7;cursor:text;"
+    >{{ texto_html }}</div>
+  </div>
+</div>
+
+<div id="annotation-palette"></div>
+<div class="annotation-tooltip" id="annotation-tooltip"></div>
+
+<div id="lista-anotacoes" class="card border-0 shadow-sm mb-3">
+  <div class="card-body py-2">
+    <div class="d-flex justify-content-between align-items-center mb-1">
+      <h6 class="mb-0">Anotações da IA</h6>
+      <span id="anotacao-contagem" class="small text-muted"></span>
+    </div>
+    <div id="anotacoes-container" class="d-flex flex-column gap-1"></div>
+  </div>
+</div>
+
+<style>
+.anotacao-ortografia, .anotacao-concordancia, .anotacao-pontuacao,
+.anotacao-coesao, .anotacao-vocabulario, .anotacao-argumentacao,
+.anotacao-clareza, .anotacao-outro {
+  border-radius: 2px; cursor: help; position: relative; display: inline;
+}
+.competencia-item { border-left: 3px solid transparent !important; transition: border-color 0.2s ease; }
+.competencia-item:has(.accordion-collapse.show) { border-left-color: var(--bs-primary) !important; }
+</style>
+
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body">
+    <h5 class="mb-3">Pré-correção da IA</h5>
+    <div class="row g-2 mb-1">
+      {% for comp in competencias %}
+        <div class="col text-center">
+          <div class="small text-muted">{{ comp.slug|upper }}</div>
+          <div class="fw-bold fs-5">{{ comp.nota_ia }}</div>
+          <div class="small" style="color:var(--bs-primary)">→ {{ comp.nota_professor }}</div>
+        </div>
+      {% endfor %}
+    </div>
+    <div class="row g-2 pt-2 border-top">
+      <div class="col text-center">
+        <div class="small text-muted">Total IA</div>
+        <div class="fw-bold fs-5">{{ total_ia }}</div>
+      </div>
+      <div class="col text-center">
+        <div class="small text-muted">Total Professor</div>
+        <div class="fw-bold fs-5" style="color:var(--bs-primary)">{{ total_professor }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<form method="post" novalidate>
+  {% csrf_token %}
+
+  <div class="accordion" id="accordionCompetencias">
+    {% for comp in competencias %}
+      <div class="accordion-item border-0 shadow-sm mb-2 competencia-item">
+        <h2 class="accordion-header">
+          <button class="accordion-button {% if not forloop.first %}collapsed{% endif %} shadow-none" type="button"
+                  data-bs-toggle="collapse" data-bs-target="#comp-{{ comp.slug }}">
+            <strong>{{ comp.slug|upper }}</strong>
+            <span class="ms-2 small">IA: {{ comp.nota_ia }}</span>
+            <span class="ms-1 small" style="color:var(--bs-primary)">→ Prof: {{ comp.nota_professor }}</span>
+          </button>
+        </h2>
+        <div id="comp-{{ comp.slug }}" class="accordion-collapse collapse {% if forloop.first %}show{% endif %}"
+             data-bs-parent="#accordionCompetencias">
+          <div class="accordion-body">
+            <div class="row g-2 mb-2">
+              <div class="col-6 col-md-3">
+                <label class="form-label small">Nota (0-200)</label>
+                <input type="number" name="{{ comp.slug }}_nota" class="form-control"
+                       value="{{ comp.nota_professor }}" min="0" max="200" step="40" required>
+              </div>
+            </div>
+            <div class="mb-2">
+              <label class="form-label small">Justificativa da IA</label>
+              <div class="border rounded p-2 bg-light small text-muted mb-2" style="font-size:0.85rem;">
+                {{ comp.justificativa_ia|default:"—" }}
+              </div>
+              <label class="form-label small">Sua justificativa</label>
+              <textarea name="{{ comp.slug }}_justificativa" class="form-control" rows="2">{{ comp.justificativa_professor }}</textarea>
+            </div>
+            <div class="mb-2">
+              <label class="form-label small">Sugestão da IA</label>
+              <div class="border rounded p-2 bg-light small text-muted mb-2" style="font-size:0.85rem;">
+                {{ comp.sugestoes_ia|default:"—" }}
+              </div>
+              <label class="form-label small">Sua sugestão</label>
+              <textarea name="{{ comp.slug }}_sugestoes" class="form-control" rows="2">{{ comp.sugestoes_professor }}</textarea>
+            </div>
+            <div>
+              <label class="form-label small">Seu comentário (só você vê)</label>
+              <textarea name="{{ comp.slug }}_comentario" class="form-control" rows="1" placeholder="Anotação pessoal...">{{ comp.comentario_professor }}</textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="d-flex align-items-center gap-3 mt-3">
+    <div class="d-flex align-items-baseline gap-2">
+      <span class="text-muted small">Nota total:</span>
+      <strong class="fs-3" id="nota-total-display">{{ total_professor }}</strong>
+      <span class="text-muted small">/ 1000</span>
+    </div>
+    <button type="submit" class="btn btn-primary ms-auto">Salvar Revisão</button>
+  </div>
+</form>
+
+{% if avaliacao.feedback_professor %}
+  <div class="mt-3 text-end">
+    <form method="post" action="{% url 'copiloto-liberar' avaliacao.id %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-success">
+        ✅ Liberar correção para o aluno
+      </button>
+    </form>
+  </div>
+{% endif %}
+
+<script>
+window.__EDITAR_CONFIG__ = {
+  avaliacaoId: '{{ avaliacao.id }}',
+  anotacoes: {{ anotacoes_json|safe }},
+};
+</script>
+<script src="{% static 'dashboard/js/corrigir-core.js' %}"></script>
+<script>
+(function() {
+  const core = window.CorrigirCore;
+  const cfg = window.__EDITAR_CONFIG__;
+  if (!cfg || !core) return;
+  core.configure({
+    onGetAvaliacaoId: function() { return cfg.avaliacaoId; },
+    anotacoes: cfg.anotacoes,
+  });
+  core.aplicarRealces();
+  core.renderizarLista();
+
+  document.getElementById('anotacoes-container')?.addEventListener('click', function(e) {
+    const b = e.target.closest('[data-excluir-anotacao]');
+    if (b && confirm('Remover esta anotação?')) core.excluirAnotacao(b.dataset.excluirAnotacao);
+  });
+})();
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const inputs = document.querySelectorAll('input[name$="_nota"]');
+  const totalDisplay = document.getElementById("nota-total-display");
+  function atualizarTotal() {
+    let soma = 0;
+    inputs.forEach(function(inp) { soma += parseInt(inp.value) || 0; });
+    totalDisplay.textContent = soma;
+  }
+  inputs.forEach(function(inp) { inp.addEventListener("input", atualizarTotal); });
+});
+</script>
+{% endblock %}

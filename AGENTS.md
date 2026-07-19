@@ -49,8 +49,9 @@ uv run pytest --cov=apps --cov=config --cov=src/essay_essay --cov-report=term-mi
 
 - **`apps/`** — apps Django: `accounts` (CustomUser UUID, email=USERNAME_FIELD), `redacoes`, `avaliacoes`, `corretores` (LLM providers), `dashboard` (templates Bootstrap + Plotly)
 - **`config/settings/`** — `base.py` → `local.py` / `production.py`. Ambos usam **PostgreSQL exclusivamente** (sem SQLite). `base.py` insere `src/` no `sys.path`, chama `load_dotenv()` e **não** define `DATABASES` (isso é responsabilidade de local/production).
-- **`src/essay_essay/`** — core de domínio puro: `domain/` (dataclasses/enums), `evaluators/` (OpenAI client, orquestrador multi-agente), `prompts/` (templates)
-- **`tests_django/`** — testes ativos com pytest-django. `tests/` é legado (ignorado pelo mypy).
+- **`src/essay_essay/`** — core de domínio puro: `domain/` (dataclasses/enums), `evaluators/` (OpenAI client, Gemini client, factory, multi-agent orquestradores, ferramentas, extrator, conhecimento_loader), `prompts/` (templates)
+- **`base_de_conhecimento/`** — textos de redações exemplares ENEM + KB JSON (carregado pelo `conhecimento_loader.py`)
+- **`tests_django/`** — testes ativos com pytest-django (~600 testes). `tests/` é legado (ignorado pelo mypy).
 - **`legacy/`** — código FastAPI antigo, não faz parte do app ativo.
 - **`planos/`** — planos de feature futuros (não implementados). `api/` está vazio.
 - **`.github/agents/`** — 5 agentes ENEM (avaliadores 1-3, data-analyst, programming-coach)
@@ -77,7 +78,7 @@ uv run pytest --cov=apps --cov=config --cov=src/essay_essay --cov-report=term-mi
 - **Testes:** `APIClient`/`Client`, `force_authenticate`/`force_login`, `pytest.mark.django_db`. **Sem fixtures globais** (sem `conftest.py`) — cada teste cria dados inline. Requerem PostgreSQL. `testpaths=tests_django`; `tests/` é legado.
 - **Testes não chamam a OpenAI:** a suíte ativa simula `Avaliacao` no banco (testa `/avaliar/humano`, não `/avaliar` via LLM). `pytest` **não** precisa de `OPENAI_API_KEY` real; ela só é necessária para rodar avaliação LLM de verdade.
 - **Modelo:** `CustomUser` com `id=UUIDField`, `email` como `USERNAME_FIELD`, `user_type` (admin/professor/aluno/corretor). Tabela: `usuarios`.
-- **OpenAI:** `LLM_MODEL` lê de env var (fallback `gpt-4o`).
+- **LLM Providers:** `LLM_MODEL` lê de env var (fallback `gpt-4o`). Suporta OpenAI, Gemini (via `factory.py`), e qualquer API compatível com OpenAI (DeepSeek, etc.) via `base_url`. O `openai_client.py` lista contextos conhecidos para vários modelos.
 - **Lint/Typecheck:** Ruff line-length=100, select=E/F/I/N/W/UP, target py312 (base tem ~238 erros pré-existentes; foque só nos arquivos que você tocar). Mypy `strict=true` excluindo `tests/`.
 - **README.md desatualizado:** cita SQLite/`dados/*.db` (o backend é PostgreSQL em ambos os settings) e sugere rodar `qcluster` em dev. Ignore — confie em `pyproject.toml`, settings e compose.
 

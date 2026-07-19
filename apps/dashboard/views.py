@@ -397,6 +397,14 @@ def detalhe_redacao(request, redacao_id: str):
         url = "dashboard-minhas-correcoes" if is_staff else "dashboard-minhas-redacoes"
         return redirect(url)
 
+    if redacao.atividade_id:
+        if request.user == redacao.usuario:
+            return redirect("atividade-aluno", atividade_id=redacao.atividade_id)
+        if request.user.user_type in {UserType.ADMIN, UserType.PROFESSOR}:
+            return redirect("copiloto-pendentes")
+        messages.error(request, "Redação não encontrada.")
+        return redirect("home")
+
     if is_staff and redacao.usuario_id != request.user.id:
         if request.user.user_type in {UserType.ADMIN, UserType.PROFESSOR}:
             avaliacoes = Avaliacao.objects.filter(redacao=redacao, rascunho=False).order_by("-criada_em")
@@ -456,7 +464,7 @@ def detalhe_redacao(request, redacao_id: str):
 @login_required
 def minhas_redacoes(request):
     redacoes = (
-        Redacao.objects.filter(usuario=request.user, excluida_em__isnull=True)
+        Redacao.objects.filter(usuario=request.user, excluida_em__isnull=True, atividade__isnull=True)
         .prefetch_related("avaliacoes", "consolidacoes")
         .order_by("-criada_em")
     )
@@ -803,20 +811,61 @@ def turma(request):
         messages.warning(request, "Apenas professores e admin acessam esta área.")
         return redirect("home")
 
-    alunos = (
-        CustomUser.objects.filter(user_type=UserType.ALUNO)
-        .annotate(total_redacoes=Count("redacoes"), media_nota=Avg("redacoes__avaliacoes__nota_total"))
-        .order_by("nome", "email")
-    )
+    if request.user.user_type == UserType.PROFESSOR:
+        turmas_qs = Turma.objects.filter(professores=request.user)
+    else:
+        turmas_qs = Turma.objects.all()
 
-    nomes = [a.nome_exibicao for a in alunos if a.media_nota]
-    medias = [float(a.media_nota) for a in alunos if a.media_nota]
-    barras_json = bar_chart(nomes, medias, title="Média dos Alunos") if nomes else None
+    turma_id = request.GET.get("turma_id")
+    turma_selecionada = None
+    if turma_id:
+        turma_selecionada = get_object_or_404(Turma, id=turma_id)
+        if request.user.user_type == UserType.PROFESSOR and not turmas_qs.filter(id=turma_id).exists():
+            messages.warning(request, "Você não tem acesso a esta turma.")
+            return redirect("dashboard-turma")
+
+    if turma_selecionada:
+        alunos = (
+            CustomUser.objects.filter(
+                user_type=UserType.ALUNO, turma=turma_selecionada
+            )
+            .annotate(
+                total_redacoes=Count("redacoes"),
+                media_nota=Avg("redacoes__avaliacoes__nota_total"),
+            )
+            .order_by("nome", "email")
+        )
+
+        nomes = [a.nome_exibicao for a in alunos if a.media_nota]
+        medias = [float(a.media_nota) for a in alunos if a.media_nota]
+        barras_json = bar_chart(nomes, medias, title="Média dos Alunos") if nomes else None
+
+        return render(
+            request,
+            "dashboard/turma.html",
+            {
+                "alunos": alunos,
+                "barras_json": barras_json,
+                "turma_selecionada": turma_selecionada,
+                "turmas": list(turmas_qs.order_by("ano", "identificador")),
+            },
+        )
+
+    stats_por_turma: list[dict] = []
+    for t in turmas_qs.order_by("ano", "identificador").prefetch_related("escola"):
+        alunos_turma = CustomUser.objects.filter(user_type=UserType.ALUNO, turma=t)
+        total_alunos = alunos_turma.count()
+        media = alunos_turma.aggregate(m=Avg("redacoes__avaliacoes__nota_total"))["m"]
+        stats_por_turma.append({
+            "turma": t,
+            "total_alunos": total_alunos,
+            "media_geral": round(float(media), 2) if media else 0.0,
+        })
 
     return render(
         request,
-        "dashboard/turma.html",
-        {"alunos": alunos, "barras_json": barras_json},
+        "dashboard/turmas.html",
+        {"stats_por_turma": stats_por_turma},
     )
 
 
@@ -854,9 +903,23 @@ def estatisticas(request):
             "ultimas_anotacoes": ultimas,
         })
 
-    total_redacoes = Redacao.objects.count()
-    total_avaliacoes = Avaliacao.objects.count()
-    agregados = Avaliacao.objects.aggregate(
+    if request.user.user_type == UserType.PROFESSOR:
+        turmas_ids = list(
+            Turma.objects.filter(professores=request.user).values_list("id", flat=True)
+        )
+        redacao_qs = Redacao.objects.filter(usuario__turma_id__in=turmas_ids)
+        avaliacao_qs = Avaliacao.objects.filter(redacao__usuario__turma_id__in=turmas_ids)
+        aluno_qs = CustomUser.objects.filter(
+            user_type=UserType.ALUNO, turma_id__in=turmas_ids
+        )
+    else:
+        redacao_qs = Redacao.objects.all()
+        avaliacao_qs = Avaliacao.objects.all()
+        aluno_qs = CustomUser.objects.filter(user_type=UserType.ALUNO)
+
+    total_redacoes = redacao_qs.count()
+    total_avaliacoes = avaliacao_qs.count()
+    agregados = avaliacao_qs.aggregate(
         media_total=Avg("nota_total"),
         c1=Avg("c1_nota"),
         c2=Avg("c2_nota"),
@@ -873,10 +936,10 @@ def estatisticas(request):
     }
 
     todas_notas = list(
-        Avaliacao.objects.filter(nota_total__gt=0).values_list("nota_total", flat=True)
+        avaliacao_qs.filter(nota_total__gt=0).values_list("nota_total", flat=True)
     )
     temas = (
-        Redacao.objects.values("tema")
+        redacao_qs.values("tema")
         .annotate(total=Count("id"))
         .order_by("-total")
     )
@@ -895,7 +958,7 @@ def estatisticas(request):
     }
 
     anotacoes_turma = Anotacao.objects.filter(
-        avaliacao__redacao__usuario__user_type=UserType.ALUNO,
+        avaliacao__redacao__in=redacao_qs,
         avaliacao__rascunho=False,
     )
 
@@ -928,7 +991,7 @@ def estatisticas(request):
         )
 
     alunos_erros = (
-        CustomUser.objects.filter(user_type=UserType.ALUNO)
+        aluno_qs
         .annotate(
             total_erros=Count("redacoes__avaliacoes__anotacoes"),
             media_nota=Avg("redacoes__avaliacoes__nota_total"),
@@ -944,7 +1007,7 @@ def estatisticas(request):
         )
 
     pivot: list[dict] = []
-    for aluno in CustomUser.objects.filter(user_type=UserType.ALUNO).order_by("nome"):
+    for aluno in aluno_qs.order_by("nome"):
         erros = (
             Anotacao.objects.filter(avaliacao__redacao__usuario=aluno, avaliacao__rascunho=False)
             .values("tipo_erro")
@@ -2719,3 +2782,794 @@ def relatorios_corretores(request):
             )
 
     return render(request, "dashboard/relatorios_corretores.html", context)
+
+
+@login_required
+def copiloto_lista(request):
+    if request.user.user_type not in {UserType.ADMIN, UserType.PROFESSOR}:
+        messages.warning(request, "Apenas administradores e professores acessam esta área.")
+        return redirect("home")
+
+    from apps.corretores.models import CorrecaoCopiloto
+
+    if request.user.user_type == UserType.ADMIN:
+        copilotos = CorrecaoCopiloto.objects.all().select_related("corretor_llm", "criado_por")
+    else:
+        copilotos = CorrecaoCopiloto.objects.filter(ativo=True).select_related("corretor_llm", "criado_por")
+
+    return render(request, "dashboard/copiloto_lista.html", {"copilotos": copilotos})
+
+
+@login_required
+def copiloto_form(request, copiloto_id=None):
+    if request.user.user_type not in {UserType.ADMIN, UserType.PROFESSOR}:
+        messages.warning(request, "Apenas administradores e professores acessam esta área.")
+        return redirect("home")
+
+    from apps.corretores.models import CorretorLLM, CorrecaoCopiloto
+
+    copiloto = None
+    if copiloto_id:
+        copiloto = get_object_or_404(CorrecaoCopiloto, id=copiloto_id)
+
+    corretores = CorretorLLM.objects.all().order_by("nome")
+
+    if request.method == "POST":
+        nome = request.POST.get("nome", "").strip()
+        corretor_llm_id = request.POST.get("corretor_llm_id")
+        ativo = request.POST.get("ativo") == "on"
+
+        if not nome:
+            messages.warning(request, "O nome do copiloto é obrigatório.")
+        elif not corretor_llm_id:
+            messages.warning(request, "Selecione um corretor IA.")
+        else:
+            corretor = get_object_or_404(CorretorLLM, id=corretor_llm_id)
+            if copiloto:
+                copiloto.nome = nome
+                copiloto.corretor_llm = corretor
+                copiloto.ativo = ativo
+                copiloto.save()
+                messages.success(request, f"Copiloto '{nome}' atualizado.")
+            else:
+                CorrecaoCopiloto.objects.create(
+                    nome=nome,
+                    corretor_llm=corretor,
+                    ativo=ativo,
+                    criado_por=request.user,
+                )
+                messages.success(request, f"Copiloto '{nome}' criado.")
+            return redirect("copiloto-lista")
+
+    return render(request, "dashboard/copiloto_form.html", {
+        "copiloto": copiloto,
+        "corretores": corretores,
+    })
+
+
+@login_required
+def atividades_lista(request):
+    from apps.redacoes.models import AtividadeAvaliativa
+
+    base_qs = AtividadeAvaliativa.objects.annotate(
+        submissoes_count=Count("redacoes", distinct=True),
+        total_alunos=Count("turmas__alunos", distinct=True),
+    ).prefetch_related("turmas__escola", "copiloto__corretor_llm", "criado_por")
+
+    if request.user.user_type == UserType.ADMIN:
+        atividades = base_qs.all()
+    elif request.user.user_type == UserType.PROFESSOR:
+        turmas_ids = Turma.objects.filter(professores=request.user).values_list("id", flat=True)
+        atividades = base_qs.filter(
+            turmas__id__in=list(turmas_ids)
+        ).distinct()
+    else:
+        messages.warning(request, "Acesso restrito.")
+        return redirect("home")
+
+    agora = timezone.now()
+    for atv in atividades:
+        if atv.prazo and atv.prazo < agora:
+            atv.status_label = "Encerrada"
+            atv.status_class = "bg-danger"
+        elif atv.prazo:
+            atv.status_label = "Ativa"
+            atv.status_class = "bg-success"
+        else:
+            atv.status_label = "Aberta"
+            atv.status_class = "bg-info"
+        atv.pendentes = max(0, atv.total_alunos - atv.submissoes_count)
+
+    return render(request, "dashboard/atividades_lista.html", {"atividades": atividades})
+
+
+@login_required
+def atividade_form(request, atividade_id=None):
+    if request.user.user_type not in {UserType.ADMIN, UserType.PROFESSOR}:
+        messages.warning(request, "Apenas administradores e professores acessam esta área.")
+        return redirect("home")
+
+    from apps.avaliacoes.notifications import (
+        criar_notificacao,
+        enviar_email_notificacao,
+    )
+    from apps.corretores.models import CorrecaoCopiloto
+    from apps.redacoes.models import AtividadeAvaliativa, TemaRedacao
+
+    atividade = None
+    if atividade_id:
+        atividade = get_object_or_404(AtividadeAvaliativa.objects.prefetch_related("turmas"), id=atividade_id)
+        if request.user.user_type == UserType.PROFESSOR:
+            turmas_prof = Turma.objects.filter(professores=request.user)
+            if not atividade.turmas.filter(id__in=turmas_prof).exists():
+                messages.warning(request, "Você não tem acesso a esta atividade.")
+                return redirect("atividades-lista")
+
+    if request.user.user_type == UserType.PROFESSOR:
+        copilotos = CorrecaoCopiloto.objects.filter(ativo=True)
+        turmas = Turma.objects.filter(professores=request.user)
+    else:
+        copilotos = CorrecaoCopiloto.objects.all()
+        turmas = Turma.objects.all()
+
+    temas = TemaRedacao.objects.filter(ativo=True).order_by("titulo")
+
+    turmas_selecionadas_ids: list[str] = []
+    if atividade:
+        turmas_selecionadas_ids = [str(t.id) for t in atividade.turmas.all()]
+    elif request.GET.get("turma_id"):
+        turmas_selecionadas_ids = [request.GET["turma_id"]]
+
+    if request.method == "POST":
+        titulo = request.POST.get("titulo", "").strip()
+        copiloto_id = request.POST.get("copiloto_id") or None
+        tema_id = request.POST.get("tema_id") or None
+        turmas_ids = request.POST.getlist("turmas_ids")
+        prazo_str = request.POST.get("prazo", "").strip()
+
+        if not titulo:
+            messages.warning(request, "O título da atividade é obrigatório.")
+        elif not turmas_ids:
+            messages.warning(request, "Selecione pelo menos uma turma.")
+        else:
+            copiloto = None
+            if copiloto_id:
+                copiloto = get_object_or_404(CorrecaoCopiloto, id=copiloto_id)
+            tema = get_object_or_404(TemaRedacao, id=tema_id) if tema_id else None
+            prazo = None
+            if prazo_str:
+                from django.utils.dateparse import parse_datetime
+                prazo = parse_datetime(prazo_str)
+
+            if atividade:
+                atividade.titulo = titulo
+                atividade.copiloto = copiloto
+                atividade.tema = tema
+                atividade.prazo = prazo
+                atividade.save()
+                atividade.turmas.set(turmas_ids)
+                messages.success(request, f"Atividade '{titulo}' atualizada.")
+            else:
+                atv = AtividadeAvaliativa.objects.create(
+                    titulo=titulo, copiloto=copiloto, tema=tema,
+                    prazo=prazo, criado_por=request.user,
+                )
+                atv.turmas.set(turmas_ids)
+                for turma in atv.turmas.all():
+                    alunos = CustomUser.objects.filter(turma=turma, user_type=UserType.ALUNO)
+                    for aluno in alunos:
+                        criar_notificacao(
+                            usuario=aluno,
+                            tipo="nova_atividade",
+                            mensagem=f"Nova atividade disponível: {atv.titulo}",
+                        )
+                        enviar_email_notificacao(
+                            usuario=aluno,
+                            assunto="Nova atividade de redação!",
+                            mensagem=(
+                                f"Olá {aluno.nome_exibicao},\n\n"
+                                f"Uma nova atividade foi publicada para sua turma:\n"
+                                f"  {atv.titulo}\n\n"
+                                f"Acesse o sistema para escrever sua redação."
+                            ),
+                        )
+                messages.success(request, f"Atividade '{titulo}' criada.")
+            return redirect("atividades-lista")
+
+    return render(request, "dashboard/atividade_form.html", {
+        "atividade": atividade,
+        "copilotos": copilotos,
+        "turmas": turmas,
+        "temas": temas,
+        "turmas_selecionadas_ids": turmas_selecionadas_ids,
+    })
+
+
+@login_required
+def copiloto_pendentes(request):
+    if request.user.user_type not in {UserType.ADMIN, UserType.PROFESSOR}:
+        messages.warning(request, "Acesso restrito.")
+        return redirect("home")
+
+    from apps.avaliacoes.models import Avaliacao
+    from apps.redacoes.models import AtividadeAvaliativa
+
+    if request.user.user_type == UserType.PROFESSOR:
+        turmas_ids = Turma.objects.filter(professores=request.user).values_list("id", flat=True)
+        atividades = AtividadeAvaliativa.objects.filter(turmas__id__in=list(turmas_ids)).distinct()
+    else:
+        atividades = AtividadeAvaliativa.objects.all()
+
+    atividades_com_pendentes = []
+    for atv in atividades:
+        if not atv.copiloto:
+            continue
+        pendentes = Avaliacao.objects.filter(
+            redacao__atividade=atv, rascunho=True, liberada_em__isnull=True,
+            corretor_llm=atv.copiloto.corretor_llm,
+        ).select_related("redacao__usuario", "redacao__tema_ref")
+        if pendentes:
+            atividades_com_pendentes.append((atv, list(pendentes)))
+
+    return render(request, "dashboard/copiloto_pendentes.html", {
+        "atividades_com_pendentes": atividades_com_pendentes,
+    })
+
+
+@login_required
+def copiloto_revisar(request, avaliacao_id):
+    if request.user.user_type not in {UserType.ADMIN, UserType.PROFESSOR}:
+        messages.warning(request, "Acesso restrito.")
+        return redirect("home")
+
+    from apps.avaliacoes.models import Avaliacao
+    from apps.redacoes.models import AtividadeAvaliativa
+
+    avaliacao = get_object_or_404(
+        Avaliacao.objects.select_related("redacao__usuario", "redacao__tema_ref"),
+        id=avaliacao_id, rascunho=True,
+    )
+
+    atividade = AtividadeAvaliativa.objects.filter(
+        redacoes=avaliacao.redacao
+    ).select_related("copiloto__corretor_llm").first()
+
+    if not atividade:
+        messages.error(request, "Redação não vinculada a uma atividade.")
+        return redirect("copiloto-pendentes")
+
+    if not atividade.copiloto:
+        messages.error(request, "Esta atividade não possui copiloto.")
+        return redirect("copiloto-pendentes")
+
+    if avaliacao.corretor_llm_id != atividade.copiloto.corretor_llm_id:
+        messages.error(request, "Esta correção não foi gerada pelo copiloto da atividade.")
+        return redirect("copiloto-pendentes")
+
+    if request.user.user_type == UserType.PROFESSOR:
+        turmas_prof = Turma.objects.filter(professores=request.user)
+        if not atividade.turmas.filter(id__in=turmas_prof).exists():
+            messages.warning(request, "Você não tem acesso a esta pré-correção.")
+            return redirect("copiloto-pendentes")
+
+    redacao = avaliacao.redacao
+
+    if request.method == "POST":
+        feedback = {}
+        for slug in ("c1", "c2", "c3", "c4", "c5"):
+            nota_prof = request.POST.get(f"{slug}_nota")
+            just_prof = request.POST.get(f"{slug}_justificativa", "").strip()
+            sug_prof = request.POST.get(f"{slug}_sugestoes", "").strip()
+            coment = request.POST.get(f"{slug}_comentario", "").strip()
+            if nota_prof is not None and nota_prof.strip():
+                try:
+                    nota_prof_val = int(nota_prof)
+                except (ValueError, TypeError):
+                    continue
+                nota_ia = getattr(avaliacao, f"{slug}_nota", 0)
+                feedback[slug] = {
+                    "nota_ia": nota_ia,
+                    "nota_professor": nota_prof_val,
+                    "delta": nota_prof_val - nota_ia,
+                    "justificativa_ia": getattr(avaliacao, f"{slug}_justificativa", ""),
+                    "justificativa_professor": just_prof or getattr(avaliacao, f"{slug}_justificativa", ""),
+                    "editou_justificativa": bool(just_prof and just_prof != getattr(avaliacao, f"{slug}_justificativa", "")),
+                    "sugestoes_ia": getattr(avaliacao, f"{slug}_sugestoes", ""),
+                    "sugestoes_professor": sug_prof or getattr(avaliacao, f"{slug}_sugestoes", ""),
+                    "editou_sugestoes": bool(sug_prof and sug_prof != getattr(avaliacao, f"{slug}_sugestoes", "")),
+                    "comentario_professor": coment,
+                    "merge_strategy": "professor_override",
+                }
+        avaliacao.feedback_professor = feedback
+        avaliacao.save(update_fields=["feedback_professor"])
+        messages.success(request, "Revisão salva. Libere a correção para o aluno quando estiver pronto.")
+        return redirect("copiloto-revisar", avaliacao_id=avaliacao.id)
+
+    competencias = []
+    fb = avaliacao.feedback_professor or {}
+    for slug in ("c1", "c2", "c3", "c4", "c5"):
+        nota_ia = getattr(avaliacao, f"{slug}_nota", 0)
+        just_ia = getattr(avaliacao, f"{slug}_justificativa", "")
+        sug_ia = getattr(avaliacao, f"{slug}_sugestoes", "")
+        slug_fb = fb.get(slug, {})
+        competencias.append({
+            "slug": slug,
+            "nota_ia": nota_ia,
+            "nota_professor": slug_fb.get("nota_professor", nota_ia),
+            "justificativa_ia": just_ia,
+            "justificativa_professor": slug_fb.get("justificativa_professor", just_ia),
+            "sugestoes_ia": sug_ia,
+            "sugestoes_professor": slug_fb.get("sugestoes_professor", sug_ia),
+            "comentario_professor": slug_fb.get("comentario_professor", ""),
+        })
+
+    total_ia = sum(getattr(avaliacao, f"{slug}_nota", 0) for slug in ("c1", "c2", "c3", "c4", "c5"))
+    total_professor = 0
+    for slug in ("c1", "c2", "c3", "c4", "c5"):
+        slug_fb = fb.get(slug, {})
+        nota_prof = slug_fb.get("nota_professor")
+        if nota_prof is not None:
+            total_professor += nota_prof
+        else:
+            total_professor += getattr(avaliacao, f"{slug}_nota", 0)
+
+    return render(request, "dashboard/copiloto_revisar.html", {
+        "avaliacao": avaliacao,
+        "redacao": redacao,
+        "atividade": atividade,
+        "competencias": competencias,
+        "anotacoes_json": _anotacoes_json(avaliacao),
+        "texto_html": _texto_anotado(redacao, avaliacao),
+        "redacao_texto": redacao.texto,
+        "total_ia": total_ia,
+        "total_professor": total_professor,
+    })
+
+
+@login_required
+def copiloto_liberar(request, avaliacao_id):
+    if request.user.user_type not in {UserType.ADMIN, UserType.PROFESSOR}:
+        messages.warning(request, "Acesso restrito.")
+        return redirect("home")
+
+    from apps.avaliacoes.models import Avaliacao
+
+    avaliacao = get_object_or_404(Avaliacao, id=avaliacao_id)
+
+    if request.user.user_type == UserType.PROFESSOR:
+        turmas_prof = Turma.objects.filter(professores=request.user)
+        from apps.redacoes.models import AtividadeAvaliativa
+        atv = AtividadeAvaliativa.objects.filter(
+            redacoes=avaliacao.redacao, turmas__id__in=turmas_prof
+        ).first()
+        if not atv:
+            messages.warning(request, "Você não tem acesso a esta correção.")
+            return redirect("copiloto-pendentes")
+
+    if request.method != "POST":
+        return redirect("copiloto-pendentes")
+
+    if not avaliacao.rascunho:
+        messages.info(request, "Esta correção já foi liberada.")
+        return redirect("copiloto-pendentes")
+
+    if avaliacao.liberada_em:
+        messages.info(request, "Esta correção já foi liberada.")
+        return redirect("copiloto-pendentes")
+
+    fb = avaliacao.feedback_professor
+    if fb:
+        for slug in ("c1", "c2", "c3", "c4", "c5"):
+            comp = fb.get(slug, {})
+            nota = comp.get("nota_professor")
+            if nota is not None:
+                setattr(avaliacao, f"{slug}_nota", nota)
+            just = comp.get("justificativa_professor")
+            if just:
+                setattr(avaliacao, f"{slug}_justificativa", just)
+            sug = comp.get("sugestoes_professor")
+            if sug:
+                setattr(avaliacao, f"{slug}_sugestoes", sug)
+
+    avaliacao.rascunho = False
+    avaliacao.liberada_em = timezone.now()
+    avaliacao.nota_total = sum(
+        getattr(avaliacao, f"{c}_nota", 0) for c in ("c1", "c2", "c3", "c4", "c5")
+    )
+    avaliacao.save()
+
+    from apps.avaliacoes.models import Notificacao
+    Notificacao.objects.create(
+        usuario=avaliacao.redacao.usuario,
+        redacao=avaliacao.redacao,
+        tipo="correcao_concluida",
+        mensagem=f"Sua redação da atividade foi corrigida! Nota: {avaliacao.nota_total}/1000",
+    )
+
+    messages.success(
+        request,
+        f"Correção liberada para o aluno! Nota final: {avaliacao.nota_total}/1000",
+    )
+    return redirect("copiloto-pendentes")
+
+
+@login_required
+def minhas_atividades(request):
+    if request.user.user_type != UserType.ALUNO:
+        messages.warning(request, "Apenas alunos acessam esta área.")
+        return redirect("home")
+
+    from apps.redacoes.models import AtividadeAvaliativa, Redacao
+
+    turma = request.user.turma
+    if not turma:
+        return render(request, "dashboard/minhas_atividades.html", {"atividades": []})
+
+    atividades = AtividadeAvaliativa.objects.filter(turmas=turma).select_related(
+        "copiloto__corretor_llm", "tema", "criado_por"
+    ).order_by("-criada_em")
+
+    dados: list[dict] = []
+    for atv in atividades:
+        redacoes = list(
+            Redacao.objects.filter(usuario=request.user, atividade=atv).order_by("-criada_em")
+        )
+        redacao = redacoes[0] if redacoes else None
+        status = "pendente"
+        nota_exibida = None
+        if redacao:
+            from apps.avaliacoes.models import Avaliacao
+            av = Avaliacao.objects.filter(
+                redacao=redacao, liberada_em__isnull=False
+            ).first()
+            if av:
+                status = "corrigida"
+                nota_exibida = av.nota_total
+            else:
+                status = "aguardando"
+        dados.append({
+            "atividade": atv,
+            "status": status,
+            "nota": nota_exibida,
+        })
+
+    return render(request, "dashboard/minhas_atividades.html", {"atividades": dados})
+
+
+@login_required
+def atividade_aluno(request, atividade_id):
+    if request.user.user_type != UserType.ALUNO:
+        messages.warning(request, "Apenas alunos acessam esta área.")
+        return redirect("home")
+
+    from apps.avaliacoes.models import Avaliacao
+    from apps.redacoes.models import AtividadeAvaliativa, Redacao
+
+    atividade = get_object_or_404(
+        AtividadeAvaliativa.objects.select_related("tema", "copiloto__corretor_llm"),
+        id=atividade_id,
+    )
+
+    if not request.user.turma or not atividade.turmas.filter(id=request.user.turma_id).exists():
+        messages.warning(request, "Esta atividade não é da sua turma.")
+        return redirect("minhas-atividades")
+
+    redacao = Redacao.objects.filter(usuario=request.user, atividade=atividade).first()
+
+    evaluation = None
+    if redacao:
+        evaluation = Avaliacao.objects.filter(
+            redacao=redacao, liberada_em__isnull=False
+        ).first()
+
+    if request.method == "POST":
+        if redacao:
+            messages.info(request, "Você já enviou uma redação para esta atividade.")
+            return redirect("atividade-aluno", atividade_id=atividade.id)
+
+        texto = request.POST.get("texto", "").strip()
+        if len(texto) < 20:
+            messages.warning(request, "A redação deve ter pelo menos 20 caracteres.")
+            return render(request, "dashboard/atividade_aluno.html", {
+                "atividade": atividade,
+                "redacao": None,
+                "evaluation": None,
+            })
+
+        titulo = atividade.tema.titulo if atividade.tema else ""
+        tema_ref = atividade.tema
+
+        redacao = Redacao.objects.create(
+            usuario=request.user,
+            texto=texto,
+            tema=titulo,
+            tema_ref=tema_ref,
+            atividade=atividade,
+            status=Redacao.Status.EM_AVALIACAO,
+            pool=None,
+        )
+
+        corretor_llm = atividade.copiloto.corretor_llm if atividade.copiloto else None
+
+        if corretor_llm:
+            from apps.avaliacoes.tasks import disparar_pre_correcao_copiloto
+
+            disparar_pre_correcao_copiloto(str(redacao.id), str(corretor_llm.id))
+
+        messages.success(request, "Redação enviada! Aguarde a correção do professor.")
+        return redirect("minhas-atividades")
+
+    texto_html = ""
+    anotacoes = []
+    radar_json = None
+    if redacao and evaluation:
+        from apps.avaliacoes.models import Anotacao
+        anotacoes = list(Anotacao.objects.filter(avaliacao=evaluation).order_by("trecho_inicio"))
+        texto_html = renderizar_texto_com_anotacoes(redacao.texto, anotacoes)
+        radar_json = radar_chart(
+            {
+                "C1 - Norma": float(evaluation.c1_nota),
+                "C2 - Tema": float(evaluation.c2_nota),
+                "C3 - Argumentação": float(evaluation.c3_nota),
+                "C4 - Coesão": float(evaluation.c4_nota),
+                "C5 - Intervenção": float(evaluation.c5_nota),
+            },
+            title="Notas por Competência",
+        )
+
+    COMP_KEYS = ["c1_nota", "c2_nota", "c3_nota", "c4_nota", "c5_nota"]
+    COMP_LABELS = ["C1 - Norma", "C2 - Tema", "C3 - Argumentação", "C4 - Coesão", "C5 - Intervenção"]
+
+    return render(request, "dashboard/atividade_aluno.html", {
+        "atividade": atividade,
+        "redacao": redacao,
+        "evaluation": evaluation,
+        "texto_html": texto_html,
+        "anotacoes": anotacoes,
+        "radar_json": radar_json,
+        "COMP_KEYS": COMP_KEYS,
+        "COMP_LABELS": COMP_LABELS,
+    })
+
+
+def _executar_pre_correcao_copiloto(redacao, corretor_llm) -> None:
+    from apps.avaliacoes.models import Anotacao, Avaliacao as AvaliacaoDB
+    from apps.corretores.models import PoolCorrecao
+    from apps.corretores.providers import obter_api_key
+    from essay_essay.domain.enums import CompetenciaNome
+    from essay_essay.domain.models import Avaliacao as AvaliacaoDomain
+    from essay_essay.domain.models import Redacao as RedacaoDomain
+    from essay_essay.evaluators.factory import criar_llm_client
+    from essay_essay.evaluators.orchestrator import avaliar_com_um
+
+    tema_texto = ""
+    if redacao.tema_ref_id and redacao.tema_ref:
+        tema_texto = f"Tema: {redacao.tema_ref.titulo}"
+        if redacao.tema_ref.texto:
+            tema_texto += f"\n\nDescrição do tema:\n{redacao.tema_ref.texto}"
+
+    texto = redacao.texto
+    if redacao.tema:
+        texto = f"Título: {redacao.tema}\n\n{texto}"
+    redacao_domain = RedacaoDomain(id=str(redacao.id), texto=texto, tema=tema_texto)
+
+    if corretor_llm.provedor:
+        api_key = obter_api_key(corretor_llm.provedor)
+        base_url = corretor_llm.provedor.base_url or None
+        llm = criar_llm_client(
+            corretor_llm.provedor.nome,
+            api_key=api_key,
+            base_url=base_url,
+            tipo=corretor_llm.provedor.tipo,
+        )
+    else:
+        from essay_essay.evaluators.openai_client import OpenAILLMClient
+        llm = OpenAILLMClient()
+
+    import asyncio
+    from asgiref.sync import async_to_sync
+
+    prompt_config = _montar_prompt_config_para_corretor(corretor_llm)
+
+    resultados_ferramentas = ""
+    from essay_essay.evaluators.ferramentas import executar_ferramentas, formatar_resultados_ferramentas
+
+    ferramentas = executar_ferramentas(
+        texto=texto,
+        tema=redacao_domain.tema or "",
+        textos_motivadores=redacao.tema_ref.texto if redacao.tema_ref else None,
+        llm=llm,
+        modelo=corretor_llm.modelo or "gpt-4o",
+    )
+    resultados_ferramentas = formatar_resultados_ferramentas(ferramentas)
+
+    provider = None
+    if prompt_config:
+        from essay_essay.evaluators.orchestrator import PromptTemplateProvider
+        provider = PromptTemplateProvider(
+            nome=corretor_llm.nome or "copiloto",
+            sistema_prompt=prompt_config.get("sistema_prompt", ""),
+            formato_saida=prompt_config.get("formato_saida", ""),
+        )
+
+    av, anotacoes_lista, _sistema, _usuario = async_to_sync(avaliar_com_um)(
+        llm,
+        redacao_domain,
+        conhecimento_dir="base_de_conhecimento",
+        provider=provider,
+        resultados_ferramentas=resultados_ferramentas,
+        modelo=corretor_llm.modelo or None,
+        output_json=bool(corretor_llm.output_json),
+    )
+
+    pool = PoolCorrecao.objects.filter(ativo=True).first()
+    from essay_essay.evaluators.span_matcher import encontrar_trecho
+
+    av_db = AvaliacaoDB.objects.create(
+        redacao=redacao,
+        pool=pool,
+        corretor_llm=corretor_llm,
+        c1_nota=av.notas_dict[CompetenciaNome.C1].nota,
+        c1_justificativa=av.notas_dict[CompetenciaNome.C1].justificativa,
+        c1_sugestoes=av.notas_dict[CompetenciaNome.C1].sugestoes,
+        c2_nota=av.notas_dict[CompetenciaNome.C2].nota,
+        c2_justificativa=av.notas_dict[CompetenciaNome.C2].justificativa,
+        c2_sugestoes=av.notas_dict[CompetenciaNome.C2].sugestoes,
+        c3_nota=av.notas_dict[CompetenciaNome.C3].nota,
+        c3_justificativa=av.notas_dict[CompetenciaNome.C3].justificativa,
+        c3_sugestoes=av.notas_dict[CompetenciaNome.C3].sugestoes,
+        c4_nota=av.notas_dict[CompetenciaNome.C4].nota,
+        c4_justificativa=av.notas_dict[CompetenciaNome.C4].justificativa,
+        c4_sugestoes=av.notas_dict[CompetenciaNome.C4].sugestoes,
+        c5_nota=av.notas_dict[CompetenciaNome.C5].nota,
+        c5_justificativa=av.notas_dict[CompetenciaNome.C5].justificativa,
+        c5_sugestoes=av.notas_dict[CompetenciaNome.C5].sugestoes,
+        nota_total=sum(comp.nota for comp in av.notas),
+        avaliador=av.avaliador or corretor_llm.nome,
+        modelo_llm=corretor_llm.modelo,
+        rascunho=True,
+    )
+
+    for item in anotacoes_lista:
+        span = encontrar_trecho(redacao.texto, item.get("trecho", ""))
+        if span:
+            inicio, fim, texto_exato = span
+            Anotacao.objects.create(
+                avaliacao=av_db,
+                trecho_inicio=inicio,
+                trecho_fim=fim,
+                trecho_texto=texto_exato[:500],
+                tipo_erro=item.get("tipo_erro", "outro"),
+                comentario=item.get("comentario", ""),
+            )
+
+    from apps.avaliacoes.models import Notificacao
+    from apps.accounts.models import Turma
+
+    atividade = redacao.atividade
+    if atividade:
+        prof_ids = Turma.objects.filter(
+            atividades=atividade, professores__isnull=False
+        ).values_list("professores", flat=True).distinct()
+        for prof_id in prof_ids:
+            Notificacao.objects.create(
+                usuario_id=prof_id,
+                redacao=redacao,
+                tipo="correcao_solicitada",
+                mensagem=(
+                    f"Pré-correção disponível para '{redacao.tema or 'redação'}' "
+                    f"— nota sugerida: {av_db.nota_total}/1000"
+                ),
+            )
+
+    try:
+        async_to_sync(llm.aclose())()
+    except RuntimeError:
+        logger.warning(
+            "LLM client close falhou (event loop fechado) — redacao=%s",
+            redacao.id, exc_info=True,
+        )
+    except Exception:
+        logger.warning(
+            "LLM client close falhou inesperadamente — redacao=%s",
+            redacao.id, exc_info=True,
+        )
+
+
+def _anotacoes_json(avaliacao) -> str:
+    import json
+
+    from apps.avaliacoes.models import Anotacao
+
+    anotacoes = Anotacao.objects.filter(avaliacao=avaliacao).order_by("trecho_inicio")
+    return json.dumps([{
+        "id": str(a.id),
+        "trecho_inicio": a.trecho_inicio,
+        "trecho_fim": a.trecho_fim,
+        "trecho_texto": a.trecho_texto,
+        "tipo_erro": a.tipo_erro,
+        "comentario": a.comentario,
+    } for a in anotacoes])
+
+
+def _texto_anotado(redacao, avaliacao) -> str:
+    from apps.avaliacoes.models import Anotacao
+
+    anotacoes = Anotacao.objects.filter(avaliacao=avaliacao).order_by("trecho_inicio")
+    return renderizar_texto_com_anotacoes(redacao.texto, anotacoes)
+
+
+def _montar_prompt_config_para_corretor(corretor_llm) -> dict:
+    from apps.corretores.models import PromptTemplate
+    cfg: dict[str, str] = {}
+    if corretor_llm.prompt_template_ref:
+        tpl = corretor_llm.prompt_template_ref
+        cfg["sistema_prompt"] = tpl.sistema_prompt
+        cfg["formato_saida"] = tpl.formato_saida
+    else:
+        tpl = PromptTemplate.objects.filter(tipo="base").order_by("criado_em").first()
+        if tpl:
+            cfg["sistema_prompt"] = tpl.sistema_prompt
+            cfg["formato_saida"] = tpl.formato_saida
+    if corretor_llm.prompt_personalizado:
+        cfg["personalizado"] = corretor_llm.prompt_personalizado
+    if corretor_llm.output_json:
+        cfg.setdefault("formato_saida", "")
+    return cfg
+
+
+@login_required
+def atividade_excluir(request, atividade_id):
+    if request.user.user_type not in {UserType.ADMIN, UserType.PROFESSOR}:
+        messages.warning(request, "Acesso restrito.")
+        return redirect("home")
+
+    from apps.redacoes.models import AtividadeAvaliativa
+
+    atv = get_object_or_404(AtividadeAvaliativa, id=atividade_id)
+
+    if request.user.user_type == UserType.PROFESSOR:
+        turmas_prof = Turma.objects.filter(professores=request.user)
+        if not atv.turmas.filter(id__in=turmas_prof).exists():
+            messages.warning(request, "Você não tem acesso a esta atividade.")
+            return redirect("atividades-lista")
+
+    if request.method == "POST":
+        titulo = atv.titulo
+        atv.delete()
+        messages.success(request, f"Atividade '{titulo}' excluída.")
+    else:
+        messages.warning(request, "Use o botão Excluir para confirmar.")
+
+    return redirect("atividades-lista")
+
+
+@login_required
+def copiloto_excluir(request, copiloto_id):
+    if request.user.user_type not in {UserType.ADMIN, UserType.PROFESSOR}:
+        messages.warning(request, "Acesso restrito.")
+        return redirect("home")
+
+    from apps.corretores.models import CorrecaoCopiloto
+
+    cop = get_object_or_404(CorrecaoCopiloto, id=copiloto_id)
+
+    if request.user.user_type == UserType.PROFESSOR and cop.criado_por != request.user:
+        messages.warning(request, "Você não pode excluir um copiloto criado por outro usuário.")
+        return redirect("copiloto-lista")
+
+    if request.method == "POST":
+        nome = cop.nome
+        qtd_atividades = cop.atividades.count()
+        cop.delete()
+        if qtd_atividades:
+            messages.success(
+                request,
+                f"Copiloto '{nome}' excluído. {qtd_atividades} atividade(s) tiveram o copiloto removido.",
+            )
+        else:
+            messages.success(request, f"Copiloto '{nome}' excluído.")
+    else:
+        messages.warning(request, "Use o botão Excluir para confirmar.")
+
+    return redirect("copiloto-lista")

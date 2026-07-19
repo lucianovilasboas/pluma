@@ -1,0 +1,77 @@
+{% extends "dashboard/base.html" %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Home</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'atividades-lista' %}">Atividades</a></li>
+    <li class="breadcrumb-item active">{{ atividade.titulo|default:"Nova Atividade" }}</li>
+  </ol>
+</nav>
+<h2 class="h4 mb-3">{{ atividade.titulo|default:"Nova Atividade" }}</h2>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body">
+    <form method="post">
+      {% csrf_token %}
+
+      <div class="mb-3">
+        <label for="titulo" class="form-label">Título da Atividade</label>
+        <input type="text" id="titulo" name="titulo" class="form-control"
+               value="{{ atividade.titulo|default:'' }}" maxlength="255" required
+               placeholder="Ex: Redação Argumentativa - 3º A">
+      </div>
+
+      <div class="mb-3">
+        <label for="copiloto_id" class="form-label">Copiloto de Correção (opcional)</label>
+        <select id="copiloto_id" name="copiloto_id" class="form-select">
+          <option value="">— Sem copiloto (correção manual) —</option>
+          {% for c in copilotos %}
+            <option value="{{ c.id }}" {% if atividade and atividade.copiloto_id|stringformat:"s" == c.id|stringformat:"s" %}selected{% endif %}>
+              {{ c.nome }} ({{ c.corretor_llm.nome }})
+            </option>
+          {% endfor %}
+        </select>
+        <div class="form-text">Selecione um copiloto para pré-correção automática, ou deixe em branco para corrigir manualmente.</div>
+      </div>
+
+      <div class="mb-3">
+        <label for="turmas_ids" class="form-label">Turmas</label>
+        <select id="turmas_ids" name="turmas_ids" class="form-select" multiple size="5" required>
+          {% for t in turmas %}
+            <option value="{{ t.id }}" {% if t.id|stringformat:"s" in turmas_selecionadas_ids %}selected{% endif %}>
+              {{ t.escola.nome }} — {{ t.nome_completo }}
+            </option>
+          {% endfor %}
+        </select>
+        <div class="form-text">Segure Ctrl (ou Cmd) para selecionar múltiplas turmas.</div>
+      </div>
+
+      <div class="mb-3">
+        <label for="tema_id" class="form-label">Tema (opcional)</label>
+        <select id="tema_id" name="tema_id" class="form-select">
+          <option value="">— Sem tema definido —</option>
+          {% for tema in temas %}
+            <option value="{{ tema.id }}" {% if atividade and atividade.tema_id == tema.id %}selected{% endif %}>
+              {{ tema.titulo }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="mb-3">
+        <label for="prazo" class="form-label">Prazo de entrega (opcional)</label>
+        <input type="datetime-local" id="prazo" name="prazo" class="form-control"
+               value="{{ atividade.prazo|date:'Y-m-d\TH:i'|default:'' }}">
+      </div>
+
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">
+          {% if atividade %}Salvar alterações{% else %}Criar Atividade{% endif %}
+        </button>
+        <a href="{% url 'atividades-lista' %}" class="btn btn-outline-secondary">Cancelar</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

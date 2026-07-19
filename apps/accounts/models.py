@@ -69,6 +69,12 @@ class Turma(models.Model):
     ano = models.CharField(max_length=20)
     identificador = models.CharField(max_length=50, blank=True, default="")
     curso = models.CharField(max_length=100, blank=True, default="")
+    professores = models.ManyToManyField(
+        "CustomUser",
+        blank=True,
+        related_name="turmas_ministradas",
+        verbose_name="Professores da turma",
+    )
     criada_em = models.DateTimeField(auto_now_add=True)
 
     class Meta:

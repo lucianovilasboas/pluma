@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from django.db.models import Q
 
-from apps.accounts.models import CustomUser, UserType
+from apps.accounts.models import CustomUser, Turma, UserType
 from apps.avaliacoes.models import Avaliacao, Notificacao
 from apps.corretores.models import PoolCorretor
 from apps.redacoes.models import Redacao
@@ -78,6 +78,23 @@ def nav_counts(request):
             .count()
         )
         counts["em_avaliacao_count"] = em_avaliacao
+
+    if ut in (UserType.ADMIN, UserType.PROFESSOR):
+        if ut == UserType.PROFESSOR:
+            turmas_ids = list(Turma.objects.filter(professores=usuario).values_list("id", flat=True))
+            pre_correcoes = Avaliacao.objects.filter(
+                rascunho=True,
+                liberada_em__isnull=True,
+                redacao__atividade__turmas__id__in=turmas_ids,
+            ).count() if turmas_ids else 0
+        else:
+            pre_correcoes = Avaliacao.objects.filter(
+                rascunho=True,
+                liberada_em__isnull=True,
+                redacao__atividade__isnull=False,
+            ).count()
+        if pre_correcoes:
+            counts["pre_correcoes_count"] = pre_correcoes
 
     if ut == UserType.ADMIN:
         usuarios_sem_banca = (
