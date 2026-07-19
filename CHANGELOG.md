@@ -12,6 +12,49 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 - Nesta seção entram as mudanças ainda não lançadas.
 - Ao fazer um release, mova as entradas para a versão correspondente.
 
+## [0.3.0] - 2026-07-18
+
+### Adicionado
+
+- Professor ↔ Turma M2M (migration accounts.0003): professores vinculados a múltiplas turmas
+- Modelo `AtividadeAvaliativa`: turmas M2M, copiloto SET_NULL/optional, feedback_professor, liberada_em
+- Campo `Redacao.atividade` FK (SET_NULL)
+- Modelo `CorrecaoCopiloto`: armazena pré-correção LLM por redação
+- CRUD completo de copilotos e atividades avaliativas (list, form, delete) com autorização
+- Pipeline de pré-correção assíncrona (`disparar_pre_correcao_copiloto` → Q2/thread)
+- Página do aluno para submissão por atividade (`atividade_aluno`)
+- Fluxo de revisão docente: lista de pendências, tela de revisão com edição de anotações, liberação
+- Card de comparação "IA → Prof" na revisão: accordion mostra nota original vs revisada
+- Feedback do professor (`feedback_professor` JSON) é lido/escrito nos GET/POST da revisão
+- Redações com atividade vinculada redirecionam aluno para `atividade-aluno` e staff para `copiloto-pendentes`
+- Lista `minhas_redacoes` filtra atividades (`atividade__isnull=True`)
+- Tela unificada de correção para o aluno (sem filtro IA/Humano, sem badges de copiloto)
+- Função `renderizar_texto_com_anotacoes` para exibição do texto corrigido com marcações
+- Notificação de nova atividade (Notificacao.Tipo.NOVA_ATIVIDADE + migration)
+- Notificação por email + in-app ao criar atividade disparam para alunos das turmas
+- Badge de pré-correções pendentes no navbar (`pre_correcoes_count` via context_processor)
+- Navbar reorganizado em dropdowns com hover (desktop) / click (mobile)
+- Turma overview cards com "Criar atividade" (?turma_id= pre-select)
+- Cards de atividade com badge de status (Ativa/Encerrada/Aberta), contagem de submissões e stats (enviados/pendentes)
+- Destaque visual "card-recente" para atividade mais nova na lista
+
+### Alterado
+
+- `AtividadeAvaliativa.copiloto` FK passa de CASCADE+required para SET_NULL+optional
+- Migration 0009 migra dados de FK para M2M em `atividades_avaliativas.turmas`
+- Total de alunos conhecidos via `Count("turmas__alunos", distinct=True)`
+- Formulários de copilato usam `novalidate` (inputs required dentro de accordion panels)
+- Template `copiloto_form.html` usa `|stringformat:"s"` em ambos os lados do UUID compare
+- `llm.aclose()` RuntimeError no Q2 worker é logado com `exc_info=True` (não silenciado)
+- Tela `atividade_aluno.html` redesign single-column idêntico a `detalhe_redacao.html`
+
+### Corrigido
+
+- LLM JSON extraction failure: `formato_saida` vazio no prompt template — garantido preenchido na base
+- `detalhe_redacao` redireciona corretamente com base em `atividade_id`
+- `copiloto_revisar` GET lê nota/justificativa/sugestões/comentário de `feedback_professor`
+- Total final na revisão usa `total_professor` (soma das notas revisadas)
+
 ## [0.2.0] - 2026-07-16
 
 ### Adicionado

@@ -36,6 +36,7 @@ uv run pytest --cov=apps --cov=config --cov=src/essay_essay --cov-report=term-mi
 - **Nunca faça suposições ao investigar.** Quando o pedido for investigar um problema, vá até a causa raiz com evidência (logs, execução real, leitura do código). Reporte o que encontrou. Se não encontrar, diga explicitamente que não encontrou — não invente hipótese como se fosse fato.
 - **Nunca misture config local com produção.** Alterações para rodar localmente (HTTP, cookies não-secure, settings de dev) NÃO podem alterar o comportamento de produção. Torne diferenças configuráveis por env var com padrão seguro para produção (ver quirks de cookies e fila). Antes de commitar, confirme que o push não muda o funcionamento em produção.
 - **Respostas objetivas e baseadas em evidências, sem viés de defesa.** Ao responder perguntas ou avaliar código, seja direto e fundamente-se em evidências concretas do projeto (código, logs, comportamento observado). Não dê respostas bajulativas para agradar o usuário, nem defensivas para justificar implementações feitas pelo modelo. Crítica técnica honesta > autoelogio.
+- **Release automático ao merge.** Toda vez que o usuário pedir um merge após correção, melhoria ou nova feature, execute automaticamente o fluxo de release completo (CHANGELOG.md → `hatch version` → commit → tag → push) sem necessidade de solicitação explícita. O merge request já implica o release.
 
 ## Setup
 
