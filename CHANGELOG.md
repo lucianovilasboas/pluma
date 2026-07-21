@@ -12,6 +12,35 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 - Nesta seção entram as mudanças ainda não lançadas.
 - Ao fazer um release, mova as entradas para a versão correspondente.
 
+## [0.4.0] - 2026-07-20
+
+### Adicionado
+
+- Gestão de turmas CRUD no dashboard (professor e admin): criar, editar, excluir, listar
+- Campo `codigo_convite` na Turma (8 caracteres, gerado automaticamente)
+- Aluno entra na turma via código (`/entrar-turma/<codigo>`)
+- Modal "Entrar em turma" com campo de código no menu do aluno
+- Verificação de email: token enviado no registro, ativação via link
+- Template `register_success.html` pós-registro
+- Chip input com busca textual para adicionar alunos (substitui select múltiplo)
+- Checkboxes + remoção em lote de alunos da turma
+- Botão Voltar (`history.back()`) nos formulários de: turma, copiloto, atividade, tema, provedor, corretor, skill, ferramenta, membro, agente, prompt, rubrica
+- Autocomplete de escola e município (IBGE) no formulário de nova turma
+
+### Modificado
+
+- Registro simplificado: todos os perfis (aluno/professor/corretor) usam mesmo form (nome, email, senha)
+- Campos `escola_nome`, `escola_municipio`, `escola_uf`, `turma_*` removidos do registro web e API
+- `RegisterForm` unificado: sem campos condicionais por tipo de usuário
+- Regra de negócio: 1 aluno = 1 turma, bloqueio de movimentação para admin também
+- `alunos_disponiveis` filtrado por `turma__isnull=True` para todos os perfis
+
+### Corrigido
+
+- Bug: formulários individuais de remoção eram engolidos pelo form do batch remove
+- Bug: listagem de alunos quebrava com annotations complexas — query simplificada
+- Bug: `request.user` com `turma_id` stale ao entrar por código — adicionado `refresh_from_db()`
+
 ## [0.3.0] - 2026-07-18
 
 ### Adicionado
