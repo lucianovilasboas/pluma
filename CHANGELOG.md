@@ -12,6 +12,13 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 - Nesta seção entram as mudanças ainda não lançadas.
 - Ao fazer um release, mova as entradas para a versão correspondente.
 
+## [0.4.1] - 2026-07-21
+
+### Adicionado
+
+- Favicon SVG da Pluma (teal sobre fundo escuro)
+- Exibição da turma na navbar do aluno: `[1º ano A]` ou `[Sem turma]` ao lado do perfil
+
 ## [0.4.0] - 2026-07-20
 
 ### Adicionado
