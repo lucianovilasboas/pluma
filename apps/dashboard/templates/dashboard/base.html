@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" type="image/svg+xml" href="/static/dashboard/favicon.svg">
     <title>Pluma</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -487,7 +488,7 @@
                 {% endif %}
               </ul>
               <div class="d-flex align-items-center gap-2 flex-wrap">
-                <span class="navbar-text small">{{ request.user.nome_exibicao }} ({{ request.user.user_type }})</span>
+                <span class="navbar-text small">{{ request.user.nome_exibicao }} ({{ request.user.user_type }}){% if request.user.user_type == 'aluno' %}{% if request.user.turma %} [{{ request.user.turma.nome_completo }}]{% else %} [Sem turma]{% endif %}{% endif %}</span>
                 <a href="/dashboard/notificacoes" class="text-decoration-none badge bg-danger rounded-pill d-none ms-1" data-nav-badge="notificacoes_nao_lidas" title="Notificações">0</a>
                 <a class="btn btn-outline-light btn-sm flex-shrink-0" href="/logout">Sair</a>
               </div>
