@@ -1,0 +1,219 @@
+{% extends "dashboard/base.html" %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Home</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'dashboard-turma' %}">Turmas</a></li>
+    <li class="breadcrumb-item active">{% if editando %}Editar Turma{% else %}Nova Turma{% endif %}</li>
+  </ol>
+</nav>
+
+<h2 class="h4 mb-3">{% if editando %}Editar Turma{% else %}Nova Turma{% endif %}</h2>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body">
+    <form method="post">
+      {% csrf_token %}
+
+      <div class="mb-3">
+        <label for="escola_nome" class="form-label">Escola</label>
+        <input type="text" id="escola_nome" name="escola_nome" class="form-control" maxlength="255" required value="{{ form.escola_nome }}">
+      </div>
+
+      <div class="row g-2 mb-3">
+        <div class="col-md-4">
+          <label for="escola_uf" class="form-label">UF (opcional)</label>
+          <select id="escola_uf" name="escola_uf" class="form-select">
+            <option value="">---</option>
+            <option value="AC" {% if form.escola_uf == "AC" %}selected{% endif %}>Acre</option>
+            <option value="AL" {% if form.escola_uf == "AL" %}selected{% endif %}>Alagoas</option>
+            <option value="AP" {% if form.escola_uf == "AP" %}selected{% endif %}>Amapá</option>
+            <option value="AM" {% if form.escola_uf == "AM" %}selected{% endif %}>Amazonas</option>
+            <option value="BA" {% if form.escola_uf == "BA" %}selected{% endif %}>Bahia</option>
+            <option value="CE" {% if form.escola_uf == "CE" %}selected{% endif %}>Ceará</option>
+            <option value="DF" {% if form.escola_uf == "DF" %}selected{% endif %}>Distrito Federal</option>
+            <option value="ES" {% if form.escola_uf == "ES" %}selected{% endif %}>Espírito Santo</option>
+            <option value="GO" {% if form.escola_uf == "GO" %}selected{% endif %}>Goiás</option>
+            <option value="MA" {% if form.escola_uf == "MA" %}selected{% endif %}>Maranhão</option>
+            <option value="MT" {% if form.escola_uf == "MT" %}selected{% endif %}>Mato Grosso</option>
+            <option value="MS" {% if form.escola_uf == "MS" %}selected{% endif %}>Mato Grosso do Sul</option>
+            <option value="MG" {% if form.escola_uf == "MG" %}selected{% endif %}>Minas Gerais</option>
+            <option value="PA" {% if form.escola_uf == "PA" %}selected{% endif %}>Pará</option>
+            <option value="PB" {% if form.escola_uf == "PB" %}selected{% endif %}>Paraíba</option>
+            <option value="PR" {% if form.escola_uf == "PR" %}selected{% endif %}>Paraná</option>
+            <option value="PE" {% if form.escola_uf == "PE" %}selected{% endif %}>Pernambuco</option>
+            <option value="PI" {% if form.escola_uf == "PI" %}selected{% endif %}>Piauí</option>
+            <option value="RJ" {% if form.escola_uf == "RJ" %}selected{% endif %}>Rio de Janeiro</option>
+            <option value="RN" {% if form.escola_uf == "RN" %}selected{% endif %}>Rio Grande do Norte</option>
+            <option value="RS" {% if form.escola_uf == "RS" %}selected{% endif %}>Rio Grande do Sul</option>
+            <option value="RO" {% if form.escola_uf == "RO" %}selected{% endif %}>Rondônia</option>
+            <option value="RR" {% if form.escola_uf == "RR" %}selected{% endif %}>Roraima</option>
+            <option value="SC" {% if form.escola_uf == "SC" %}selected{% endif %}>Santa Catarina</option>
+            <option value="SP" {% if form.escola_uf == "SP" %}selected{% endif %}>São Paulo</option>
+            <option value="SE" {% if form.escola_uf == "SE" %}selected{% endif %}>Sergipe</option>
+            <option value="TO" {% if form.escola_uf == "TO" %}selected{% endif %}>Tocantins</option>
+          </select>
+        </div>
+        <div class="col-md-8 position-relative">
+          <label for="escola_municipio" class="form-label">Município (opcional)</label>
+          <input type="text" id="escola_municipio" name="escola_municipio" class="form-control" maxlength="255" value="{{ form.escola_municipio }}">
+          <ul class="list-group position-absolute w-100 shadow-sm" id="municipio-dropdown" style="z-index:1050;max-height:200px;overflow-y:auto;display:none"></ul>
+        </div>
+      </div>
+
+      <div class="row g-2 mb-3">
+        <div class="col-md-4">
+          <label for="ano" class="form-label">Ano</label>
+          <input type="text" id="ano" name="ano" class="form-control" maxlength="20" required value="{{ form.ano }}" placeholder="Ex: 1o ano">
+        </div>
+        <div class="col-md-4">
+          <label for="curso" class="form-label">Curso (opcional)</label>
+          <input type="text" id="curso" name="curso" class="form-control" maxlength="100" value="{{ form.curso }}" placeholder="Ex: Informatica">
+        </div>
+        <div class="col-md-4">
+          <label for="identificador" class="form-label">Turma (opcional)</label>
+          <input type="text" id="identificador" name="identificador" class="form-control" maxlength="50" value="{{ form.identificador }}" placeholder="Ex: A">
+        </div>
+      </div>
+
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">{% if editando %}Salvar alterações{% else %}Criar turma{% endif %}</button>
+        <a href="{% url 'dashboard-turma' %}" class="btn btn-outline-secondary js-cancel-back">Cancelar</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+  var escolaInput = document.getElementById('escola_nome');
+  var municipioInput = document.getElementById('escola_municipio');
+  var muniDropdown = document.getElementById('municipio-dropdown');
+  var ufSelect = document.getElementById('escola_uf');
+  var municipiosCache = [];
+
+  if (escolaInput) {
+    var dropdown = document.createElement('ul');
+    dropdown.className = 'list-group position-absolute w-100 shadow-sm';
+    dropdown.style.zIndex = '1050';
+    dropdown.style.maxHeight = '200px';
+    dropdown.style.overflowY = 'auto';
+    dropdown.style.display = 'none';
+    escolaInput.parentNode.classList.add('position-relative');
+    escolaInput.parentNode.appendChild(dropdown);
+
+    var debounceTimer;
+    escolaInput.addEventListener('input', function() {
+      clearTimeout(debounceTimer);
+      var q = this.value.trim();
+      if (q.length < 2) {
+        dropdown.style.display = 'none';
+        return;
+      }
+      debounceTimer = setTimeout(function() {
+        fetch('/api/v1/auth/escolas?q=' + encodeURIComponent(q))
+          .then(function(response) { return response.json(); })
+          .then(function(data) {
+            dropdown.innerHTML = '';
+            if (!Array.isArray(data) || data.length === 0) {
+              var li = document.createElement('li');
+              li.className = 'list-group-item small text-muted';
+              li.textContent = 'Nenhuma escola encontrada. Digite o nome completo.';
+              dropdown.appendChild(li);
+              dropdown.style.display = 'block';
+              return;
+            }
+            data.forEach(function(escola) {
+              var li = document.createElement('li');
+              li.className = 'list-group-item list-group-item-action py-1 px-3';
+              li.style.cursor = 'pointer';
+              var label = escola.nome;
+              if (escola.municipio) {
+                label += ' (' + escola.municipio + '/' + escola.uf + ')';
+              }
+              li.textContent = label;
+              li.addEventListener('click', function() {
+                escolaInput.value = escola.nome || '';
+                if (municipioInput && escola.municipio) {
+                  municipioInput.value = escola.municipio;
+                }
+                if (ufSelect && escola.uf) {
+                  ufSelect.value = escola.uf;
+                }
+                dropdown.style.display = 'none';
+              });
+              dropdown.appendChild(li);
+            });
+            dropdown.style.display = 'block';
+          });
+      }, 300);
+    });
+
+    document.addEventListener('click', function(event) {
+      if (!escolaInput.parentNode.contains(event.target)) {
+        dropdown.style.display = 'none';
+      }
+    });
+  }
+
+  if (ufSelect) {
+    ufSelect.addEventListener('change', function() {
+      var uf = this.value;
+      municipiosCache = [];
+      if (!uf) return;
+      fetch('/api/v1/auth/municipios?uf=' + encodeURIComponent(uf))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          municipiosCache = data;
+        });
+    });
+  }
+
+  if (municipioInput && muniDropdown) {
+    var mDebounce;
+    municipioInput.addEventListener('input', function() {
+      clearTimeout(mDebounce);
+      var q = this.value.trim().toLowerCase();
+      if (q.length < 2 || municipiosCache.length === 0) {
+        muniDropdown.style.display = 'none';
+        return;
+      }
+      mDebounce = setTimeout(function() {
+        var matches = municipiosCache.filter(function(n) {
+          return n.toLowerCase().indexOf(q) === 0;
+        }).slice(0, 10);
+        muniDropdown.innerHTML = '';
+        if (matches.length === 0) {
+          var li = document.createElement('li');
+          li.className = 'list-group-item small text-muted';
+          li.textContent = 'Nenhum município encontrado.';
+          muniDropdown.appendChild(li);
+        } else {
+          matches.forEach(function(nome) {
+            var li = document.createElement('li');
+            li.className = 'list-group-item list-group-item-action py-1 px-3';
+            li.style.cursor = 'pointer';
+            li.textContent = nome;
+            li.addEventListener('click', function() {
+              municipioInput.value = nome;
+              muniDropdown.style.display = 'none';
+            });
+            muniDropdown.appendChild(li);
+          });
+        }
+        muniDropdown.style.display = 'block';
+      }, 200);
+    });
+
+    document.addEventListener('click', function(e) {
+      if (municipioInput && !municipioInput.parentNode.contains(e.target)) {
+        muniDropdown.style.display = 'none';
+      }
+    });
+  }
+})();
+</script>
+{% endblock %}

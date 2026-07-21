@@ -10,73 +10,252 @@
 </nav>
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h2 class="h4 mb-0">Turma</h2>
-  {% if turmas|length > 1 %}
-  <form method="get" class="d-flex align-items-center gap-2">
-    <label for="turma-select" class="form-label small text-muted mb-0">Turma:</label>
-    <select name="turma_id" id="turma-select" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
-      {% for t in turmas %}
-        <option value="{{ t.id }}" {% if t.id == turma_selecionada.id %}selected{% endif %}>
-          {{ t.nome_completo }}
-        </option>
-      {% endfor %}
-    </select>
-  </form>
-  {% endif %}
+  <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+    {% if turmas|length > 1 %}
+    <form method="get" class="d-flex align-items-center gap-2">
+      <label for="turma-select" class="form-label small text-muted mb-0">Turma:</label>
+      <select name="turma_id" id="turma-select" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
+        {% for t in turmas %}
+          <option value="{{ t.id }}" {% if t.id == turma_selecionada.id %}selected{% endif %}>
+            {{ t.nome_completo }}
+          </option>
+        {% endfor %}
+      </select>
+    </form>
+    {% endif %}
+    <a href="{% url 'dashboard-turma' %}" class="btn btn-outline-secondary btn-sm js-cancel-back">Voltar</a>
+    <a href="{% url 'dashboard-turma-editar' turma_selecionada.id %}" class="btn btn-outline-secondary btn-sm">Editar</a>
+    <form method="post" action="{% url 'dashboard-turma-excluir' turma_selecionada.id %}" onsubmit="return confirm('Excluir esta turma? Os alunos serão desvinculados.');">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-outline-danger btn-sm">Excluir</button>
+    </form>
+  </div>
 </div>
 
 {% if turma_selecionada %}
   <p class="text-muted small mb-3">{{ turma_selecionada.escola.nome }} — {{ turma_selecionada.nome_completo }}</p>
 {% endif %}
 
-{% if barras_json %}
-<div class="row g-3 mb-4">
-  <div class="col-12 col-md-8">
-    <div class="card border-0 shadow-sm">
-      <div class="card-body">
-        <div id="barras-chart"></div>
+<div class="card border-0 shadow-sm mb-3" id="card-convite">
+  <div class="card-body py-2 d-flex align-items-center justify-content-between">
+    <div>
+      <span class="fw-semibold small">Código da turma:</span>
+      <code class="ms-1 fs-6" id="codigo-convite">{{ turma_selecionada.codigo_convite }}</code>
+      <span class="text-muted small ms-2">Compartilhe com seus alunos</span>
+    </div>
+    <button type="button" class="btn btn-outline-primary btn-sm" onclick="copiarConvite()">
+      Copiar link
+    </button>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body">
+    <form method="post" action="{% url 'dashboard-turma-adicionar-aluno' turma_selecionada.id %}" id="form-add-alunos">
+      {% csrf_token %}
+      <div class="d-flex align-items-end gap-2">
+        <div class="flex-grow-1 position-relative">
+          <label for="chip-search" class="form-label mb-1">Adicionar alunos à turma</label>
+          <input type="text" id="chip-search" class="form-control form-control-sm"
+                 placeholder="Digite o nome do aluno..." autocomplete="off">
+          <ul class="list-group position-absolute w-100 shadow-sm" id="chip-dropdown"
+              style="z-index:1050;max-height:200px;overflow-y:auto;display:none"></ul>
+        </div>
+        <div>
+          <button type="submit" class="btn btn-primary btn-sm">Adicionar</button>
+        </div>
+      </div>
+      <div class="d-flex flex-wrap gap-1 mt-2" id="chip-container"></div>
+      <select name="alunos_ids" id="alunos-ids-hidden" multiple hidden></select>
+    </form>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              <th style="width:1%"><input type="checkbox" id="select-all" onclick="toggleAll(this)"></th>
+              <th>Aluno</th>
+              <th>E-mail</th>
+              <th class="text-end">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for aluno in alunos %}
+              <tr>
+                <td><input type="checkbox" value="{{ aluno.id }}" class="aluno-checkbox"></td>
+                <td>{{ aluno.nome_exibicao }}</td>
+                <td>{{ aluno.email }}</td>
+                <td class="text-end">
+                  <form method="post" action="{% url 'dashboard-turma-remover-aluno' turma_selecionada.id aluno.id %}" class="d-inline" onsubmit="return confirm('Remover este aluno da turma?');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-danger">Remover</button>
+                  </form>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="4" class="text-center text-muted py-4">Nenhum aluno nesta turma.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
-</div>
-{% endif %}
-
-<div class="card border-0 shadow-sm">
-  <div class="card-body p-0">
-    <div class="table-responsive">
-      <table class="table table-hover mb-0">
-        <thead>
-          <tr>
-            <th>Aluno</th>
-            <th>E-mail</th>
-            <th>Redações</th>
-            <th>Média</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for aluno in alunos %}
-            <tr>
-              <td>{{ aluno.nome_exibicao }}</td>
-              <td>{{ aluno.email }}</td>
-              <td>{{ aluno.total_redacoes }}</td>
-              <td>{{ aluno.media_nota|default:0|floatformat:2 }}</td>
-            </tr>
-          {% empty %}
-            <tr>
-              <td colspan="4" class="text-center text-muted py-4">Nenhum aluno nesta turma.</td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
     </div>
   </div>
-</div>
 
-{% if barras_json %}
+  <form method="post" action="{% url 'dashboard-turma-remover-alunos' turma_selecionada.id %}" id="form-remover-alunos" class="d-none">
+    {% csrf_token %}
+    <input type="hidden" name="remover_ids" id="batch-ids" value="">
+    <div class="mt-2">
+      <button type="submit" class="btn btn-outline-danger btn-sm">
+        Remover <span id="count-selected">0</span> selecionado(s)
+      </button>
+    </div>
+  </form>
+
+{% endblock %}
+
+{% block extra_js %}
 <script>
-  document.addEventListener("DOMContentLoaded", function() {
-    var barras = {{ barras_json|safe }};
-    Plotly.newPlot("barras-chart", barras.data, barras.layout, {responsive: true});
+(function() {
+  var alunosDisponiveis = [
+    {% for a in alunos_disponiveis %}
+      {id:"{{ a.id }}", nome:"{{ a.nome_exibicao|escapejs }}"} {% if not forloop.last %},{% endif %}
+    {% endfor %}
+  ];
+
+  var searchInput = document.getElementById('chip-search');
+  var dropdown = document.getElementById('chip-dropdown');
+  var chipContainer = document.getElementById('chip-container');
+  var hiddenSelect = document.getElementById('alunos-ids-hidden');
+  var form = document.getElementById('form-add-alunos');
+
+  if (!searchInput || !dropdown) return;
+
+  function renderDropdown(matches) {
+    dropdown.innerHTML = '';
+    if (matches.length === 0) {
+      var li = document.createElement('li');
+      li.className = 'list-group-item small text-muted';
+      li.textContent = 'Nenhum aluno encontrado.';
+      dropdown.appendChild(li);
+      dropdown.style.display = 'block';
+      return;
+    }
+    matches.forEach(function(aluno) {
+      if (document.querySelector('#alunos-ids-hidden option[value="' + aluno.id + '"]')) return;
+      var li = document.createElement('li');
+      li.className = 'list-group-item list-group-item-action py-1 px-3';
+      li.style.cursor = 'pointer';
+      li.textContent = aluno.nome;
+      li.addEventListener('click', function() {
+        addChip(aluno);
+        searchInput.value = '';
+        dropdown.style.display = 'none';
+        searchInput.focus();
+      });
+      dropdown.appendChild(li);
+    });
+    dropdown.style.display = 'block';
+  }
+
+  function addChip(aluno) {
+    if (hiddenSelect.querySelector('option[value="' + aluno.id + '"]')) return;
+    var opt = document.createElement('option');
+    opt.value = aluno.id;
+    opt.selected = true;
+    hiddenSelect.appendChild(opt);
+
+    var chip = document.createElement('span');
+    chip.className = 'badge bg-primary-subtle text-primary-emphasis d-inline-flex align-items-center gap-1';
+    chip.style.fontSize = '0.85rem';
+    chip.innerHTML = aluno.nome + ' <button type="button" class="btn-close" style="font-size:0.5rem" aria-label="Remover"></button>';
+    chip.querySelector('button').addEventListener('click', function() {
+      var opt = hiddenSelect.querySelector('option[value="' + aluno.id + '"]');
+      if (opt) opt.remove();
+      chip.remove();
+    });
+    chipContainer.appendChild(chip);
+  }
+
+  searchInput.addEventListener('input', function() {
+    var q = this.value.trim().toLowerCase();
+    if (q.length < 2) {
+      dropdown.style.display = 'none';
+      return;
+    }
+    var matches = alunosDisponiveis.filter(function(a) {
+      return a.nome.toLowerCase().indexOf(q) !== -1;
+    }).slice(0, 10);
+    renderDropdown(matches);
   });
+
+  document.addEventListener('click', function(e) {
+    if (searchInput.parentNode && !searchInput.parentNode.contains(e.target)) {
+      dropdown.style.display = 'none';
+    }
+  });
+
+  searchInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      form.requestSubmit();
+    }
+  });
+})();
 </script>
-{% endif %}
+
+<script>
+function toggleAll(source) {
+  var checkboxes = document.querySelectorAll('.aluno-checkbox');
+  checkboxes.forEach(function(cb) { cb.checked = source.checked; });
+  updateRemoveFooter();
+}
+
+function updateRemoveFooter() {
+  var checked = document.querySelectorAll('.aluno-checkbox:checked');
+  var ids = Array.from(checked).map(function(cb) { return cb.value; });
+  document.getElementById('batch-ids').value = ids.join(',');
+  document.getElementById('count-selected').textContent = checked.length;
+  var form = document.getElementById('form-remover-alunos');
+  if (checked.length > 0) {
+    form.classList.remove('d-none');
+  } else {
+    form.classList.add('d-none');
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  var checkboxes = document.querySelectorAll('.aluno-checkbox');
+  checkboxes.forEach(function(cb) {
+    cb.addEventListener('change', updateRemoveFooter);
+  });
+  updateRemoveFooter();
+});
+
+function copiarConvite() {
+  var code = document.getElementById('codigo-convite').textContent;
+  var url = window.location.origin + '/entrar-turma/' + code;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(function() {
+      mostrarToast('Link copiado!', 'success');
+    });
+  } else {
+    var ta = document.createElement('textarea');
+    ta.value = url;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); mostrarToast('Link copiado!', 'success'); } catch (ex) {}
+    document.body.removeChild(ta);
+  }
+}
+</script>
 {% endblock %}
