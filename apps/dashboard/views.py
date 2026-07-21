@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import uuid
 from collections import Counter, defaultdict
 from datetime import timedelta
 
@@ -13,6 +14,7 @@ from django.db import models
 from django.db.models import Avg, Count, Q, StdDev
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.cache import never_cache
 from django.utils import timezone
 from django.utils.html import escape, mark_safe
@@ -177,40 +179,6 @@ def register_view(request):
     if request.method == "POST":
         if form.is_valid():
             email = form.cleaned_data["email"].lower().strip()
-            escola = None
-            turma = None
-
-            escola_nome = form.cleaned_data.get("escola_nome", "").strip()
-            if escola_nome:
-                escola_municipio = form.cleaned_data.get("escola_municipio", "").strip()
-                escola_uf = form.cleaned_data.get("escola_uf", "").strip()
-                try:
-                    escola = Escola.objects.get(nome__iexact=escola_nome)
-                    update_fields = []
-                    if escola_municipio and not escola.municipio:
-                        escola.municipio = escola_municipio
-                        update_fields.append("municipio")
-                    if escola_uf and not escola.uf:
-                        escola.uf = escola_uf
-                        update_fields.append("uf")
-                    if update_fields:
-                        escola.save(update_fields=update_fields)
-                except Escola.DoesNotExist:
-                    escola = Escola.objects.create(
-                        nome=escola_nome,
-                        municipio=escola_municipio,
-                        uf=escola_uf,
-                    )
-
-            if escola and tipo == "aluno":
-                turma_ano = form.cleaned_data.get("turma_ano", "").strip()
-                if turma_ano:
-                    turma = Turma.objects.get_or_create(
-                        escola=escola,
-                        ano=turma_ano,
-                        identificador=form.cleaned_data.get("turma_identificador", "").strip(),
-                        curso=form.cleaned_data.get("turma_curso", "").strip(),
-                    )[0]
 
             tipo_para_user_type = {
                 "aluno": UserType.ALUNO,
@@ -218,17 +186,39 @@ def register_view(request):
                 "corretor": UserType.CORRETOR,
             }
 
+            token = uuid.uuid4()
             user = CustomUser.objects.create_user(
                 email=email,
                 nome=form.cleaned_data["nome"],
                 password=form.cleaned_data["senha"],
                 user_type=tipo_para_user_type[tipo],
-                escola=escola,
-                turma=turma,
+                is_active=False,
+                email_verification_token=token,
+                email_verification_sent_at=timezone.now(),
             )
-            login(request, user)
-            messages.success(request, "Conta criada com sucesso.")
-            return redirect("home")
+
+            from apps.avaliacoes.notifications import enviar_email_notificacao
+
+            verification_url = request.build_absolute_uri(
+                reverse("dashboard-verify-email", kwargs={"token": str(token)})
+            )
+
+            enviar_email_notificacao(
+                usuario=user,
+                assunto="Verifique seu e-mail",
+                mensagem=(
+                    f"Olá {user.nome_exibicao},\n\n"
+                    f"Obrigado por se cadastrar no Pluma!\n\n"
+                    f"Para ativar sua conta, clique no link abaixo:\n\n"
+                    f"{verification_url}\n\n"
+                    f"Se você não criou esta conta, ignore este e-mail."
+                ),
+            )
+
+            return render(request, "dashboard/register_success.html", {
+                "email": email,
+                "tipo": tipo,
+            })
 
         for field_name, errs in form.errors.items():
             for err in errs:
@@ -241,6 +231,58 @@ def register_view(request):
             break
 
     return render(request, "dashboard/register.html", {"form": form, "tipo": tipo})
+
+
+def verify_email(request, token):
+    user = CustomUser.objects.filter(email_verification_token=token).first()
+    if user is None:
+        messages.error(request, "Link de verificação inválido ou já utilizado.")
+        return redirect("register")
+
+    user.email_verified = True
+    user.is_active = True
+    user.email_verification_token = None
+    user.save(update_fields=["email_verified", "is_active", "email_verification_token"])
+
+    messages.success(request, "E-mail verificado com sucesso! Faça login para acessar o sistema.")
+    return redirect("login")
+
+
+def entrar_turma(request, codigo):
+    turma_obj = Turma.objects.filter(codigo_convite=codigo).first()
+    if turma_obj is None:
+        messages.error(request, "Código de turma inválido.")
+        return redirect("home")
+
+    if not request.user.is_authenticated:
+        return redirect(f"/login?next=/entrar-turma/{codigo}")
+
+    request.user.refresh_from_db()
+
+    if request.user.user_type != UserType.ALUNO:
+        messages.warning(request, "Apenas alunos podem entrar em turmas.")
+        return redirect("home")
+
+    if request.user.turma_id == turma_obj.id:
+        messages.info(request, f"Você já faz parte da turma '{turma_obj.nome_completo}'.")
+        return redirect("minhas-atividades")
+
+    if request.user.turma_id:
+        turma_atual = request.user.turma
+        nome_atual = turma_atual.nome_completo if turma_atual else "outra turma"
+        messages.warning(
+            request,
+            f"Você já está na turma '{nome_atual}'. "
+            "Peça ao professor para remover você antes de entrar em uma nova turma.",
+        )
+        return redirect("minhas-atividades")
+
+    request.user.turma = turma_obj
+    request.user.escola = turma_obj.escola
+    request.user.save(update_fields=["turma", "escola"])
+
+    messages.success(request, f"Você entrou na turma '{turma_obj.nome_completo}'!")
+    return redirect("minhas-atividades")
 
 
 @login_required
@@ -829,25 +871,22 @@ def turma(request):
             CustomUser.objects.filter(
                 user_type=UserType.ALUNO, turma=turma_selecionada
             )
-            .annotate(
-                total_redacoes=Count("redacoes"),
-                media_nota=Avg("redacoes__avaliacoes__nota_total"),
-            )
             .order_by("nome", "email")
         )
 
-        nomes = [a.nome_exibicao for a in alunos if a.media_nota]
-        medias = [float(a.media_nota) for a in alunos if a.media_nota]
-        barras_json = bar_chart(nomes, medias, title="Média dos Alunos") if nomes else None
+        alunos_disponiveis = CustomUser.objects.filter(
+            user_type=UserType.ALUNO,
+            turma__isnull=True,
+        ).order_by("nome", "email")
 
         return render(
             request,
             "dashboard/turma.html",
             {
                 "alunos": alunos,
-                "barras_json": barras_json,
                 "turma_selecionada": turma_selecionada,
                 "turmas": list(turmas_qs.order_by("ano", "identificador")),
+                "alunos_disponiveis": alunos_disponiveis,
             },
         )
 
@@ -867,6 +906,230 @@ def turma(request):
         "dashboard/turmas.html",
         {"stats_por_turma": stats_por_turma},
     )
+
+
+def _upsert_escola_por_nome(escola_nome: str, escola_municipio: str, escola_uf: str) -> Escola:
+    escola_nome = escola_nome.strip()
+    escola_municipio = escola_municipio.strip()
+    escola_uf = escola_uf.strip()
+
+    try:
+        escola = Escola.objects.get(nome__iexact=escola_nome)
+        update_fields = []
+        if escola_municipio and not escola.municipio:
+            escola.municipio = escola_municipio
+            update_fields.append("municipio")
+        if escola_uf and not escola.uf:
+            escola.uf = escola_uf
+            update_fields.append("uf")
+        if update_fields:
+            escola.save(update_fields=update_fields)
+        return escola
+    except Escola.DoesNotExist:
+        return Escola.objects.create(
+            nome=escola_nome,
+            municipio=escola_municipio,
+            uf=escola_uf,
+        )
+
+
+def _obter_turma_gerenciavel(usuario: CustomUser, turma_id: str) -> Turma | None:
+    if usuario.user_type == UserType.ADMIN:
+        return Turma.objects.filter(id=turma_id).first()
+    if usuario.user_type == UserType.PROFESSOR:
+        return Turma.objects.filter(id=turma_id, professores=usuario).first()
+    return None
+
+
+@login_required
+def turma_form(request, turma_id=None):
+    if request.user.user_type not in {UserType.ADMIN, UserType.PROFESSOR}:
+        messages.warning(request, "Apenas professores e admin acessam esta área.")
+        return redirect("home")
+
+    turma_obj = None
+    if turma_id:
+        turma_obj = _obter_turma_gerenciavel(request.user, str(turma_id))
+        if turma_obj is None:
+            messages.warning(request, "Você não tem acesso a esta turma.")
+            return redirect("dashboard-turma")
+
+    if request.method == "POST":
+        escola_nome = request.POST.get("escola_nome", "").strip()
+        escola_municipio = request.POST.get("escola_municipio", "").strip()
+        escola_uf = request.POST.get("escola_uf", "").strip()
+        ano = request.POST.get("ano", "").strip()
+        curso = request.POST.get("curso", "").strip()
+        identificador = request.POST.get("identificador", "").strip()
+
+        if not escola_nome:
+            messages.warning(request, "Informe a escola da turma.")
+        elif not ano:
+            messages.warning(request, "Informe o ano da turma.")
+        else:
+            escola = _upsert_escola_por_nome(escola_nome, escola_municipio, escola_uf)
+
+            if turma_obj:
+                turma_obj.escola = escola
+                turma_obj.ano = ano
+                turma_obj.curso = curso
+                turma_obj.identificador = identificador
+                turma_obj.save()
+                messages.success(request, "Turma atualizada com sucesso.")
+                return redirect(f"{redirect('dashboard-turma').url}?turma_id={turma_obj.id}")
+
+            turma_obj, criada = Turma.objects.get_or_create(
+                escola=escola,
+                ano=ano,
+                curso=curso,
+                identificador=identificador,
+            )
+            if request.user.user_type == UserType.PROFESSOR:
+                turma_obj.professores.add(request.user)
+
+            if criada:
+                messages.success(request, "Turma criada com sucesso.")
+            else:
+                messages.info(request, "Turma já existia e foi vinculada ao seu perfil.")
+            return redirect(f"{redirect('dashboard-turma').url}?turma_id={turma_obj.id}")
+
+    form = {
+        "escola_nome": turma_obj.escola.nome if turma_obj else "",
+        "escola_municipio": turma_obj.escola.municipio if turma_obj else "",
+        "escola_uf": turma_obj.escola.uf if turma_obj else "",
+        "ano": turma_obj.ano if turma_obj else "",
+        "curso": turma_obj.curso if turma_obj else "",
+        "identificador": turma_obj.identificador if turma_obj else "",
+    }
+    return render(request, "dashboard/turma_form.html", {
+        "turma_obj": turma_obj,
+        "form": form,
+        "editando": turma_obj is not None,
+    })
+
+
+@login_required
+def turma_excluir(request, turma_id):
+    if request.user.user_type not in {UserType.ADMIN, UserType.PROFESSOR}:
+        messages.warning(request, "Apenas professores e admin acessam esta área.")
+        return redirect("home")
+
+    turma_obj = _obter_turma_gerenciavel(request.user, str(turma_id))
+    if turma_obj is None:
+        messages.warning(request, "Você não tem acesso a esta turma.")
+        return redirect("dashboard-turma")
+
+    if request.method != "POST":
+        messages.warning(request, "Use o botão excluir para confirmar.")
+        return redirect(f"{redirect('dashboard-turma').url}?turma_id={turma_obj.id}")
+
+    nome_turma = turma_obj.nome_completo
+    CustomUser.objects.filter(user_type=UserType.ALUNO, turma=turma_obj).update(turma=None)
+    turma_obj.delete()
+    messages.success(request, f"Turma '{nome_turma}' excluída com sucesso.")
+    return redirect("dashboard-turma")
+
+
+@login_required
+def turma_adicionar_aluno(request, turma_id):
+    if request.user.user_type not in {UserType.ADMIN, UserType.PROFESSOR}:
+        messages.warning(request, "Apenas professores e admin acessam esta área.")
+        return redirect("home")
+
+    turma_obj = _obter_turma_gerenciavel(request.user, str(turma_id))
+    if turma_obj is None:
+        messages.warning(request, "Você não tem acesso a esta turma.")
+        return redirect("dashboard-turma")
+
+    if request.method != "POST":
+        return redirect(f"{redirect('dashboard-turma').url}?turma_id={turma_obj.id}")
+
+    alunos_ids = request.POST.getlist("alunos_ids")
+    if not alunos_ids:
+        messages.warning(request, "Selecione pelo menos um aluno.")
+        return redirect(f"{redirect('dashboard-turma').url}?turma_id={turma_obj.id}")
+
+    adicionados = 0
+    ignorados = 0
+    for aluno_id in alunos_ids:
+        aluno_id = aluno_id.strip()
+        aluno = CustomUser.objects.filter(id=aluno_id, user_type=UserType.ALUNO).first()
+        if aluno is None:
+            continue
+        if aluno.turma_id and aluno.turma_id != turma_obj.id:
+            ignorados += 1
+            continue
+        if aluno.turma_id == turma_obj.id:
+            continue
+        aluno.turma = turma_obj
+        aluno.escola = turma_obj.escola
+        aluno.save(update_fields=["turma", "escola"])
+        adicionados += 1
+
+    if adicionados:
+        msg = f"{adicionados} aluno(s) adicionado(s) à turma."
+        if ignorados:
+            msg += f" {ignorados} ignorado(s) (já em outra turma)."
+        messages.success(request, msg)
+    elif ignorados:
+        messages.warning(request, "Nenhum aluno adicionado. Todos os selecionados já estão em outras turmas.")
+    else:
+        messages.info(request, "Nenhum aluno foi adicionado.")
+    return redirect(f"{redirect('dashboard-turma').url}?turma_id={turma_obj.id}")
+
+
+@login_required
+def turma_remover_aluno(request, turma_id, aluno_id):
+    if request.user.user_type not in {UserType.ADMIN, UserType.PROFESSOR}:
+        messages.warning(request, "Apenas professores e admin acessam esta área.")
+        return redirect("home")
+
+    turma_obj = _obter_turma_gerenciavel(request.user, str(turma_id))
+    if turma_obj is None:
+        messages.warning(request, "Você não tem acesso a esta turma.")
+        return redirect("dashboard-turma")
+
+    if request.method != "POST":
+        return redirect(f"{redirect('dashboard-turma').url}?turma_id={turma_obj.id}")
+
+    aluno = CustomUser.objects.filter(id=aluno_id, user_type=UserType.ALUNO).first()
+    if aluno is None or aluno.turma_id != turma_obj.id:
+        messages.warning(request, "Aluno não pertence a esta turma.")
+        return redirect(f"{redirect('dashboard-turma').url}?turma_id={turma_obj.id}")
+
+    aluno.turma = None
+    aluno.save(update_fields=["turma"])
+    messages.success(request, "Aluno removido da turma.")
+    return redirect(f"{redirect('dashboard-turma').url}?turma_id={turma_obj.id}")
+
+
+@login_required
+def turma_remover_alunos(request, turma_id):
+    if request.user.user_type not in {UserType.ADMIN, UserType.PROFESSOR}:
+        messages.warning(request, "Apenas professores e admin acessam esta área.")
+        return redirect("home")
+
+    turma_obj = _obter_turma_gerenciavel(request.user, str(turma_id))
+    if turma_obj is None:
+        messages.warning(request, "Você não tem acesso a esta turma.")
+        return redirect("dashboard-turma")
+
+    if request.method != "POST":
+        return redirect(f"{redirect('dashboard-turma').url}?turma_id={turma_obj.id}")
+
+    remover_raw = request.POST.get("remover_ids", "").strip()
+    if not remover_raw:
+        messages.warning(request, "Selecione pelo menos um aluno para remover.")
+        return redirect(f"{redirect('dashboard-turma').url}?turma_id={turma_obj.id}")
+
+    remover_ids = [rid for rid in remover_raw.split(",") if rid.strip()]
+
+    removidos = CustomUser.objects.filter(
+        id__in=remover_ids, user_type=UserType.ALUNO, turma=turma_obj
+    ).update(turma=None)
+
+    messages.success(request, f"{removidos} aluno(s) removido(s) da turma.")
+    return redirect(f"{redirect('dashboard-turma').url}?turma_id={turma_obj.id}")
 
 
 @login_required

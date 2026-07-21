@@ -393,6 +393,9 @@
                       <li><a class="dropdown-item" href="/dashboard/minhas-redacoes">Minhas Redações</a></li>
                     </ul>
                   </li>
+                  <li class="nav-item">
+                    <a class="nav-link" href="#" onclick="abrirModalEntrarTurma(); return false;">Entrar em turma</a>
+                  </li>
                 {% elif request.user.user_type == 'professor' %}
                   <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Minhas Atividades</a>
@@ -643,5 +646,54 @@ document.addEventListener("DOMContentLoaded", function() {
       </script>
     {% endif %}
     {% block extra_js %}{% endblock %}
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        var cancelLinks = document.querySelectorAll(".js-cancel-back");
+        cancelLinks.forEach(function (link) {
+          if (window.history.length > 1) {
+            link.addEventListener("click", function (e) {
+              e.preventDefault();
+              window.history.back();
+            });
+          }
+        });
+      });
+    </script>
+    {% if request.user.is_authenticated and request.user.user_type == 'aluno' %}
+    <div class="modal fade" id="modal-entrar-turma" tabindex="-1">
+      <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Entrar em turma</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <label for="codigo-turma-input" class="form-label">Código da turma</label>
+            <input type="text" id="codigo-turma-input" class="form-control" maxlength="12"
+                   placeholder="Ex: A3F9B2C1" autocomplete="off">
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="entrarNaTurma()">Entrar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+      function abrirModalEntrarTurma() {
+        var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-entrar-turma'));
+        modal.show();
+        setTimeout(function() { document.getElementById('codigo-turma-input').focus(); }, 200);
+      }
+      function entrarNaTurma() {
+        var code = document.getElementById('codigo-turma-input').value.trim().toUpperCase();
+        if (!code) { mostrarToast('Informe o código da turma.', 'warning'); return; }
+        window.location.href = '/entrar-turma/' + encodeURIComponent(code);
+      }
+      document.getElementById('codigo-turma-input').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') entrarNaTurma();
+      });
+    </script>
+    {% endif %}
   </body>
 </html>

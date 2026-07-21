@@ -24,6 +24,10 @@ def test_auth_register_login_me_flow():
     )
     assert register_resp.status_code == 201
 
+    CustomUser.objects.filter(email="aluno@example.com").update(
+        is_active=True, email_verified=True, email_verification_token=None
+    )
+
     login_resp = client.post(
         "/api/v1/auth/login",
         {"email": "aluno@example.com", "password": "senha-super-segura"},

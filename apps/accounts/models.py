@@ -76,6 +76,9 @@ class Turma(models.Model):
         verbose_name="Professores da turma",
     )
     criada_em = models.DateTimeField(auto_now_add=True)
+    codigo_convite = models.CharField(
+        max_length=12, unique=True, null=True, blank=True, default=None
+    )
 
     class Meta:
         db_table = "turmas"
@@ -100,6 +103,12 @@ class Turma(models.Model):
     def __str__(self) -> str:
         return f"{self.escola.nome} - {self.nome_completo}"
 
+    def save(self, *args, **kwargs):
+        if not self.codigo_convite:
+            import uuid
+            self.codigo_convite = uuid.uuid4().hex[:8].upper()
+        super().save(*args, **kwargs)
+
 
 class CustomUser(AbstractUser):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -117,6 +126,11 @@ class CustomUser(AbstractUser):
     turma = models.ForeignKey(
         Turma, on_delete=models.SET_NULL, null=True, blank=True, related_name="alunos"
     )
+    email_verified = models.BooleanField(default=False)
+    email_verification_token = models.UUIDField(
+        null=True, blank=True, unique=True, default=None
+    )
+    email_verification_sent_at = models.DateTimeField(null=True, blank=True, default=None)
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS: list[str] = []

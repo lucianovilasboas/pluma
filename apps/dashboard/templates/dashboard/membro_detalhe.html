@@ -59,7 +59,7 @@
                 placeholder="Descreva as habilidades, especialidades e foco de correção deste avaliador...">{{ membro.descricao|default:'' }}</textarea>
       <div class="d-flex gap-2">
         <button type="submit" class="btn btn-primary">Salvar</button>
-        <a href="{% url 'banca-detalhe' banca.id %}" class="btn btn-outline-secondary">Cancelar</a>
+        <a href="{% url 'banca-detalhe' banca.id %}" class="btn btn-outline-secondary js-cancel-back">Cancelar</a>
         {% if membro.tipo == "llm" %}
           <button type="button" class="btn btn-outline-secondary" id="btn-gerar-descricao"
                   onclick="gerarDescricao()">

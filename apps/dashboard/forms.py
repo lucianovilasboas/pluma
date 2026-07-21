@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from django import forms
 
-from apps.accounts.models import CustomUser, UFChoices
+from apps.accounts.models import CustomUser
 
 
 class BootstrapForm(forms.Form):
@@ -28,33 +28,10 @@ class RegisterForm(BootstrapForm):
     senha_confirmacao = forms.CharField(
         label="Confirmar senha", min_length=8, widget=forms.PasswordInput
     )
-    escola_nome = forms.CharField(label="Escola", required=False, max_length=255)
-    escola_municipio = forms.CharField(label="Município", required=False, max_length=255)
-    escola_uf = forms.ChoiceField(
-        label="UF",
-        required=False,
-        choices=[("", "---")] + list(UFChoices.choices),
-    )
-    turma_ano = forms.CharField(label="Ano", required=False, max_length=20)
-    turma_identificador = forms.CharField(label="Turma", required=False, max_length=50)
-    turma_curso = forms.CharField(label="Curso", required=False, max_length=100)
 
     def __init__(self, *args, **kwargs):
         self.tipo = kwargs.pop("tipo", "aluno")
         super().__init__(*args, **kwargs)
-        if self.tipo == "professor":
-            for field_name in ("turma_ano", "turma_identificador", "turma_curso"):
-                self.fields.pop(field_name, None)
-        elif self.tipo == "corretor":
-            for field_name in (
-                "escola_nome",
-                "escola_municipio",
-                "escola_uf",
-                "turma_ano",
-                "turma_identificador",
-                "turma_curso",
-            ):
-                self.fields.pop(field_name, None)
 
     def clean_email(self):
         email = self.cleaned_data.get("email", "").lower().strip()
